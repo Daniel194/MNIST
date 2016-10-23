@@ -1,87 +1,119 @@
-from tensorflow.examples.tutorials.mnist import input_data
 import tensorflow as tf
+import numpy as np
+import Utility as util
 
 
-def weight_variable(shape):
-    initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
+class DigitsRecognition(object):
+    def training(self, features, labels):
+        # Split data into training and validation sets.
+        train_features = features[800:]
+        train_labels = labels[800:]
+        validation_features = features[0:800]
+        validation_labels = labels[0:800]
+
+        # Launch the session
+        self.sess = tf.InteractiveSession()
+
+        # Placeholders
+        self.x = tf.placeholder(tf.float32, shape=[None, 784])  # the data
+        self.y_ = tf.placeholder(tf.float32, shape=[None, 10])  # the true labels
+
+        # Prepare the data
+        self.x_image = tf.reshape(self.x, [-1, 28, 28, 1])
+
+        # First Convolutional Layer
+        self.W_conv1 = self.__weight_variable([5, 5, 1, 32])
+        self.b_conv1 = self.__bias_variable([32])
+
+        self.h_conv1 = tf.nn.relu(self.__conv(self.x_image, self.W_conv1) + self.b_conv1)
+        self.h_pool1 = self.__max_pool(self.h_conv1)
+
+        # Second Convolutional Layer
+        self.W_conv2 = self.__weight_variable([5, 5, 32, 64])
+        self.b_conv2 = self.__bias_variable([64])
+
+        self.h_conv2 = tf.nn.relu(self.__conv(self.h_pool1, self.W_conv2) + self.b_conv2)
+        self.h_pool2 = self.__max_pool(self.h_conv2)
+
+        # First Full Connected Layer
+        self.W_fc1 = self.__weight_variable([7 * 7 * 64, 1024])
+        self.b_fc1 = self.__bias_variable([1024])
+
+        self.h_pool2_flat = tf.reshape(self.h_pool2, [-1, 7 * 7 * 64])
+        self.h_fc1 = tf.nn.relu(tf.matmul(self.h_pool2_flat, self.W_fc1) + self.b_fc1)
+
+        # Dropout
+        self.keep_prob = tf.placeholder(tf.float32)
+        self.h_fc1_drop = tf.nn.dropout(self.h_fc1, self.keep_prob)
+
+        # Second Full Connected Layer
+        self.W_fc2 = self.__weight_variable([1024, 10])
+        self.b_fc2 = self.__bias_variable([10])
+
+        self.y_conv = tf.nn.softmax(tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2)
+
+        # Loss Function loss fn == avg(y'*log(y))
+        loss_fn = tf.reduce_mean(-tf.reduce_sum(self.y_ * tf.log(self.y_conv), reduction_indices=[1]))
+
+        # Training step - ADAM solver
+        train_step = tf.train.AdamOptimizer(1e-4).minimize(loss_fn)
+
+        # Evaluate the model
+        correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
+
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+        # Initialize all variables
+        self.sess.run(tf.initialize_all_variables())
+
+        for i in range(20000):
+            batch = util.generate_batch(train_features, train_labels, 50)
+            train_step.run(feed_dict={self.x: batch[0], self.y_: batch[1], self.keep_prob: 0.5})
+
+            if i % 100 == 0:
+                train_accuracy = accuracy.eval(
+                    feed_dict={self.x: validation_features, self.y_: validation_labels, self.keep_prob: 1.0})
+
+                print('Step - ', i, ' - Acc : ', train_accuracy)
+
+    def predicting(self, test_features):
+        # Run model on test data
+        predicted_labels = self.sess.run(self.y_conv, feed_dict={self.x: test_features, self.keep_prob: 1.0})
+
+        # Convert softmax predictions to label
+        predicted_labels = np.argmax(predicted_labels, axis=1)
+
+        return predicted_labels
+
+    def __weight_variable(self, shape):
+        initial = tf.truncated_normal(shape, stddev=0.1)
+        return tf.Variable(initial)
+
+    def __bias_variable(self, shape):
+        initial = tf.constant(0.1, shape=shape)
+        return tf.Variable(initial)
+
+    def __conv(self, x, W):
+        return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+
+    def __max_pool(self, x):
+        return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
-def bias_variable(shape):
-    initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
+if __name__ == "__main__":
+    # Read the feature and the labels.
+    features = util.read_features_from_csv('MNIST_data/train.csv')
+    labels = util.read_labels_from_csv('MNIST_data/train.csv')
+    test_features = util.read_features_from_csv('MNIST_data/test.csv', usecols=None)
 
+    model = DigitsRecognition()
 
-def conv2d(x, W):
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+    model.training(features, labels)
 
+    predicted_labels = model.predicting(test_features)
 
-def max_pool_2x2(x):
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME')
+    # Save the predictions to label
+    util.save_predicted_labels('RESULT_data/submission_cnn.csv', predicted_labels)
 
-
-# Import the data
-mnist = input_data.read_data_sets('MNIST_data/', one_hot=True)
-
-# Launch the session
-sess = tf.InteractiveSession()
-
-# Placeholders
-x = tf.placeholder(tf.float32, shape=[None, 784])  # the data
-y_ = tf.placeholder(tf.float32, shape=[None, 10])  # the true labels
-
-# Prepare the data
-x_image = tf.reshape(x, [-1, 28, 28, 1])
-
-# First Convolutional Layer
-W_conv1 = weight_variable([5, 5, 1, 32])
-b_conv1 = bias_variable([32])
-
-h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-h_pool1 = max_pool_2x2(h_conv1)
-
-# Second Convolutional Layer
-W_conv2 = weight_variable([5, 5, 32, 64])
-b_conv2 = bias_variable([64])
-
-h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-h_pool2 = max_pool_2x2(h_conv2)
-
-# First Full Connected Layer
-W_fc1 = weight_variable([7 * 7 * 64, 1024])
-b_fc1 = bias_variable([1024])
-
-h_pool2_flat = tf.reshape(h_pool2, [-1, 7 * 7 * 64])
-h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
-
-# Dropout
-keep_prob = tf.placeholder(tf.float32)
-h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-
-# Second Full Connected Layer
-W_fc2 = weight_variable([1024, 10])
-b_fc2 = bias_variable([10])
-
-y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
-
-cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_))
-
-train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-
-correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
-
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-sess.run(tf.initialize_all_variables())
-
-for i in range(20000):
-    batch = mnist.train.next_batch(50)
-
-    if i % 100 == 0:
-        train_accuracy = accuracy.eval(feed_dict={x: batch[0], y_: batch[1], keep_prob: 1.0})
-        print("step %d, training accuracy %g" % (i, train_accuracy))
-
-    train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
-
-print("test accuracy %g" % accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
+    # Close the session
+    model.sess.close()
