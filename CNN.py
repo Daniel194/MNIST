@@ -6,10 +6,10 @@ import Utility as util
 class DigitsRecognition(object):
     def training(self, features, labels):
         # Split data into training and validation sets.
-        train_features = features[800:]
-        train_labels = labels[800:]
-        validation_features = features[0:800]
-        validation_labels = labels[0:800]
+        train_features = features[500:]
+        train_labels = labels[500:]
+        validation_features = features[0:500]
+        validation_labels = labels[0:500]
 
         # Launch the session
         self.sess = tf.InteractiveSession()
@@ -21,19 +21,29 @@ class DigitsRecognition(object):
         # Prepare the data
         self.x_image = tf.reshape(self.x, [-1, 28, 28, 1])
 
-        # First Convolutional Layer
-        self.W_conv1 = self.__weight_variable([5, 5, 1, 32])
+        # First Layer
+        self.W_conv1 = self.__weight_variable([3, 3, 1, 32])
         self.b_conv1 = self.__bias_variable([32])
 
         self.h_conv1 = tf.nn.relu(self.__conv(self.x_image, self.W_conv1) + self.b_conv1)
-        self.h_pool1 = self.__max_pool(self.h_conv1)
 
-        # Second Convolutional Layer
-        self.W_conv2 = self.__weight_variable([5, 5, 32, 64])
+        self.W_conv1_2 = self.__weight_variable([3, 3, 32, 32])
+        self.b_conv1_2 = self.__bias_variable([32])
+
+        self.h_conv1_2 = tf.nn.relu(self.__conv(self.h_conv1, self.W_conv1_2) + self.b_conv1_2)
+        self.h_pool1 = self.__max_pool(self.h_conv1_2)
+
+        # Second Layer
+        self.W_conv2 = self.__weight_variable([3, 3, 32, 64])
         self.b_conv2 = self.__bias_variable([64])
 
         self.h_conv2 = tf.nn.relu(self.__conv(self.h_pool1, self.W_conv2) + self.b_conv2)
-        self.h_pool2 = self.__max_pool(self.h_conv2)
+
+        self.W_conv2_2 = self.__weight_variable([3, 3, 64, 64])
+        self.b_conv2_2 = self.__bias_variable([64])
+
+        self.h_conv2_2 = tf.nn.relu(self.__conv(self.h_conv2, self.W_conv2_2) + self.b_conv2_2)
+        self.h_pool2 = self.__max_pool(self.h_conv2_2)
 
         # First Full Connected Layer
         self.W_fc1 = self.__weight_variable([7 * 7 * 64, 1024])
