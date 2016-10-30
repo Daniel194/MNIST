@@ -78,7 +78,7 @@ class DigitsRecognition(object):
 
         for i in range(20000):
             batch = util.generate_batch(train_features, train_labels, 50)
-            train_step.run(feed_dict={self.x: batch[0], self.y_: batch[1], self.keep_prob: 0.5})
+            train_step.run(feed_dict={self.x: batch[0], self.y_: batch[1], self.keep_prob: 0.75})
 
             if i % 100 == 0:
                 train_accuracy = accuracy.eval(
