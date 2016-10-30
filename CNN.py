@@ -6,10 +6,10 @@ import Utility as util
 class DigitsRecognition(object):
     def training(self, features, labels):
         # Split data into training and validation sets.
-        train_features = features[500:]
-        train_labels = labels[500:]
-        validation_features = features[0:500]
-        validation_labels = labels[0:500]
+        train_features = features[50:]
+        train_labels = labels[50:]
+        validation_features = features[0:50]
+        validation_labels = labels[0:50]
 
         # Launch the session
         self.sess = tf.InteractiveSession()
