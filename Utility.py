@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 
 
 def read_features_from_csv(filename, usecols=range(1, 785)):
@@ -57,3 +58,33 @@ def save_predicted_labels(filename, predicted_labels):
     predicted_labels = np.transpose(predicted_labels)
 
     np.savetxt(filename, predicted_labels, fmt='%i,%i', header='ImageId,Label', comments='')
+
+
+def create_file(filename):
+    """
+    Create the file name.
+    :param filename: the name of the file.
+    :return: nothing.
+    """
+
+    with open(filename, "w") as csvfile:
+        fieldnames = ['ImageId', 'Label']
+
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+
+
+def append_data_to_file(filename, predicted_labels, start):
+    """
+    Append the predicted labels in a csv file.
+    :param filename: the filename where will be append the labels.
+    :param predicted_labels: the prediction labels.
+    :param start: the start point.
+     """
+
+    predicted_labels = [np.arange(start + 1, 1 + start + len(predicted_labels)), predicted_labels]
+    predicted_labels = np.transpose(predicted_labels)
+
+    with open(filename, 'a') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerows(label for label in predicted_labels)
