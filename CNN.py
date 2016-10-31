@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     model.training(features, labels)
 
-    util.create_file('RESULT_data/submission_cnn2.csv')
+    util.create_file('RESULT_data/submission_cnn.csv')
 
     for i in range(0, test_features.shape[0], 50):
         batch_test_feature = test_features[i:i + 50, :]
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         predicted_labels = model.predicting(batch_test_feature)
 
         # Save the predictions to label
-        util.append_data_to_file('RESULT_data/submission_cnn2.csv', predicted_labels, i)
+        util.append_data_to_file('RESULT_data/submission_cnn.csv', predicted_labels, i)
 
     # Close the session
     model.sess.close()
