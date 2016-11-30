@@ -1,5 +1,7 @@
 import numpy as np
 import csv
+import pickle
+import os.path as path
 
 
 def read_features_from_csv(filename, usecols=range(1, 785)):
@@ -88,3 +90,46 @@ def append_data_to_file(filename, predicted_labels, start):
     with open(filename, 'a') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(label for label in predicted_labels)
+
+
+def unpickle(file):
+    """
+    :param file: the path to the data/test batch
+    :return: return a dictionary which contain data and labels from a batch
+    """
+    with open(file, 'rb') as f:
+        u = pickle._Unpickler(f)
+        u.encoding = 'latin1'
+        dict = u.load()
+
+        return dict
+
+
+def pickle_nn(file, nn):
+    """
+    Save the learned data from a Neural Network
+    :param file: the place where will be saved the data
+    :param nn: a dictionary which contains all data
+    :return: return true if the file was saved else it return false
+    """
+
+    with open(file, 'wb') as f:
+        pickle.dump(nn, f)
+
+    if path.isfile(file):
+        return True
+    else:
+        return False
+
+
+def file_exist(file):
+    """
+    Check if a file exist in the current computer
+    :param file: the file
+    :return: return tru if the file exits else return false
+    """
+
+    if path.isfile(file):
+        return True
+    else:
+        return False
