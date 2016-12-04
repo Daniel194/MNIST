@@ -15,9 +15,9 @@ class ConvolutionNeuralNetwork(object):
         self.D = d
         self.K = k
         self.NR_VALIDATION_DATA = 50
-        self.NR_ITERATION = 20
+        self.NR_ITERATION = 20000
         self.BATCH_SIZE = 50
-        self.SHOW_ACC = 1
+        self.SHOW_ACC = 100
 
         # Hyperparameter
         self.TRAIN_STEP = 1e-4
@@ -432,7 +432,7 @@ class ConvolutionNeuralNetwork(object):
 
 if __name__ == "__main__":
     # Variable
-    learn_data = 'RESULT_data/cifar_10'
+    learn_data = 'RESULT_data/mnist'
     batch_size = 50
     features = util.read_features_from_csv('MNIST_data/train.csv')
     labels = util.read_labels_from_csv('MNIST_data/train.csv')
