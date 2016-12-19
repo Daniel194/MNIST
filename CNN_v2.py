@@ -1,6 +1,5 @@
 import tensorflow as tf
 import math
-import os.path
 import time
 import functools
 
@@ -47,39 +46,28 @@ class DigitsRecognition(object):
         # Tell TensorFlow that the model will be built into the default Graph.
         with tf.Graph().as_default():
             # Generate placeholders for the images and labels.
-            images_placeholder, labels_placeholder = self.__placeholder_inputs(self.batch_size)
+            images_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.IMAGE_PIXELS))
+            labels_placeholder = tf.placeholder(tf.int32, shape=self.batch_size)
 
             # Build a Graph that computes predictions from the inference model.
-            logits = self.__inference(images_placeholder, self.hidden1, self.hidden2)
+            logits = self.__inference(images_placeholder)
 
             # Add to the Graph the Ops for loss calculation.
             loss = self.__loss(logits, labels_placeholder)
 
             # Add to the Graph the Ops that calculate and apply gradients.
-            train_op = self.__training(loss, self.learning_rate)
+            train_op = self.__training(loss)
 
             # Add the Op to compare the logits to the labels during evaluation.
             eval_correct = self.__evaluation(logits, labels_placeholder)
 
-            # Build the summary Tensor based on the TF collection of Summaries.
-            summary = tf.summary.merge_all()
-
-            # Add the variable initializer Op.
-            init = tf.global_variables_initializer()
-
-            # Create a saver for writing training checkpoints.
-            saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)
-
             # Create a session for running Ops on the Graph.
             sess = tf.Session()
-
-            # Instantiate a SummaryWriter to output summaries and the Graph.
-            summary_writer = tf.train.SummaryWriter(self.log_dir, sess.graph)
 
             # And then after everything is built:
 
             # Run the Op to initialize the variables.
-            sess.run(init)
+            sess.run(tf.initialize_all_variables())
 
             # Start the training loop.
             for step in range(self.max_steps):
@@ -89,11 +77,8 @@ class DigitsRecognition(object):
                 # for this particular training step.
                 feed_dict = self.__fill_feed_dict(training, images_placeholder, labels_placeholder)
 
-                # Run one step of the model.  The return values are the activations
-                # from the `train_op` (which is discarded) and the `loss` Op.  To
-                # inspect the values of your Ops or variables, you may include them
-                # in the list passed to sess.run() and the value tensors will be
-                # returned in the tuple from the call.
+                # Run one step of the model.  The return values are the activations from the
+                # `train_op` (which is discarded) and the `loss` Op.
                 _, loss_value = sess.run([train_op, loss], feed_dict=feed_dict)
 
                 duration = time.time() - start_time
@@ -102,16 +87,9 @@ class DigitsRecognition(object):
                 if step % 100 == 0:
                     # Print status to stdout.
                     print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
-                    # Update the events file.
-                    summary_str = sess.run(summary, feed_dict=feed_dict)
-                    summary_writer.add_summary(summary_str, step)
-                    summary_writer.flush()
 
                 # Save a checkpoint and evaluate the model periodically.
                 if (step + 1) % 1000 == 0 or (step + 1) == self.max_steps:
-                    checkpoint_file = os.path.join(log_dir, 'model.ckpt')
-
-                    saver.save(sess, checkpoint_file, global_step=step)
                     # Evaluate against the training set.
                     print('Training Data Eval:')
 
@@ -128,15 +106,15 @@ class DigitsRecognition(object):
                     self.__do_eval(sess, eval_correct, images_placeholder, labels_placeholder, test)
 
     def __do_eval(self, sess, eval_correct, images_placeholder, labels_placeholder, data_set):
-        """Runs one evaluation against the full epoch of data.
-        Args:
-          sess: The session in which the model has been trained.
-          eval_correct: The Tensor that returns the number of correct predictions.
-          images_placeholder: The images placeholder.
-          labels_placeholder: The labels placeholder.
-          data_set: The set of images and labels to evaluate, from
-            input_data.read_data_sets().
         """
+        Runs one evaluation against the full epoch of data.
+        :param sess: The session in which the model has been trained.
+        :param eval_correct: The Tensor that returns the number of correct predictions.
+        :param images_placeholder: The images placeholder.
+        :param labels_placeholder: The labels placeholder.
+        :param data_set: The set of images and labels to evaluate, from input_data.read_data_sets().
+        """
+
         # And run one epoch of eval.
         true_count = 0  # Counts the number of correct predictions.
         steps_per_epoch = data_set.num_examples // self.batch_size
@@ -151,21 +129,15 @@ class DigitsRecognition(object):
         print('  Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' % (num_examples, true_count, precision))
 
     def __fill_feed_dict(self, data_set, images_pl, labels_pl):
-        """Fills the feed_dict for training the given step.
-        A feed_dict takes the form of:
-        feed_dict = {
-            <placeholder>: <tensor of values to be passed for placeholder>,
-            ....
-        }
-        Args:
-          data_set: The set of images and labels, from input_data.read_data_sets()
-          images_pl: The images placeholder, from placeholder_inputs().
-          labels_pl: The labels placeholder, from placeholder_inputs().
-        Returns:
-          feed_dict: The feed dictionary mapping from placeholders to values.
         """
-        # Create the feed_dict for the placeholders filled with the next
-        # `batch size` examples.
+        Fills the feed_dict for training the given step.
+        :param data_set: The set of images and labels, from input_data.read_data_sets()
+        :param images_pl: he images placeholder, from placeholder_inputs().
+        :param labels_pl: The labels placeholder, from placeholder_inputs().
+        :return: The feed dictionary mapping from placeholders to values.
+        """
+
+        # Create the feed_dict for the placeholders filled with the next `batch size` examples.
         images_feed, labels_feed = data_set.next_batch(self.batch_size)
         feed_dict = {
             images_pl: images_feed,
@@ -173,24 +145,6 @@ class DigitsRecognition(object):
         }
 
         return feed_dict
-
-    def __placeholder_inputs(self, batch_size):
-        """Generate placeholder variables to represent the input tensors.
-        These placeholders are used as inputs by the rest of the model building
-        code and will be fed from the downloaded data in the .run() loop, below.
-        Args:
-          batch_size: The batch size will be baked into both placeholders.
-        Returns:
-          images_placeholder: Images placeholder.
-          labels_placeholder: Labels placeholder.
-        """
-
-        # Note that the shapes of the placeholders match the shapes of the full
-        # image and label tensors, except the first dimension is now batch_size
-        # rather than the full size of the train or test data sets.
-        images_placeholder = tf.placeholder(tf.float32, shape=(batch_size, self.IMAGE_PIXELS))
-        labels_placeholder = tf.placeholder(tf.int32, shape=(batch_size))
-        return images_placeholder, labels_placeholder
 
     def __inference(self, images):
         """
@@ -269,7 +223,8 @@ class DigitsRecognition(object):
 
         return fc2
 
-    def __loss(self, logits, labels):
+    @staticmethod
+    def __loss(logits, labels):
         """
         Calculates the loss from the logits and the labels.
         :param logits: Logits tensor, float - [batch_size, NUM_CLASSES].
@@ -285,7 +240,7 @@ class DigitsRecognition(object):
 
         return loss
 
-    def __training(self, loss, learning_rate):
+    def __training(self, loss):
         """
         Sets up the training Ops.
         Creates a summarizer to track the loss over time in TensorBoard.
@@ -293,7 +248,6 @@ class DigitsRecognition(object):
         The Op returned by this function is what must be passed to the
         `sess.run()` call to cause the model to train.
         :param loss: Loss tensor, from loss().
-        :param learning_rate: The learning rate to use for gradient descent.
         :return: The Op for training.
         """
 
@@ -301,7 +255,7 @@ class DigitsRecognition(object):
         tf.summary.scalar('loss', loss)
 
         # Create the gradient descent optimizer with the given learning rate.
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+        optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
         # Create a variable to track the global step.
         global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -312,7 +266,8 @@ class DigitsRecognition(object):
 
         return train_op
 
-    def __evaluation(self, logits, labels):
+    @staticmethod
+    def __evaluation(logits, labels):
         """
         Evaluate the quality of the logits at predicting the label.
         :param logits: Logits tensor, float - [batch_size, NUM_CLASSES].
