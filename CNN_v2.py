@@ -4,6 +4,7 @@ import time
 import functools
 import Utility
 import numpy as np
+import sys
 
 
 class DigitsRecognition(object):
@@ -267,10 +268,7 @@ class DigitsRecognition(object):
         :return: A scalar int32 tensor with the number of examples (out of batch_size) that were predicted correctly.
         """
 
-        # For a classifier model, we can use the in_top_k Op.
-        # It returns a bool tensor with shape [batch_size] that is true for
-        # the examples where the label is in the top k (here k=1)
-        # of all logits for that example.
+        # Top k correct prediction
         correct = tf.nn.in_top_k(logits, true_labels, 1)
 
         # Return the number of true entries.
@@ -330,6 +328,8 @@ class DigitsRecognition(object):
             batch_predicted_labels = np.argmax(batch_predicted_labels, axis=1)
             predicted_labels.append(batch_predicted_labels)
 
+        sess.close()
+
         return predicted_labels
 
 
@@ -338,6 +338,10 @@ if __name__ == '__main__':
     TRAIN_DATA = 'MNIST_data/train.csv'
     TEST_DATA = 'MNIST_data/test.csv'
     SAVE_DATA = 'RESULT_data/submission_cnn_v2.csv'
+    OUTPUT_FILE = 'RESULT_data/output_cnn_v2.txt'
+
+    # Redirect the output to a file
+    sys.stdout = open(OUTPUT_FILE, 'w')
 
     # Read the feature and the labels.
     features = Utility.read_features_from_csv(TRAIN_DATA)
