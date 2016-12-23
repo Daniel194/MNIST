@@ -103,6 +103,8 @@ class DigitsRecognition(object):
                     # Print status to stdout.
                     print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
 
+                    sys.stdout.flush()
+
                 # Save a checkpoint and evaluate the model periodically.
                 if (step + 1) % 1000 == 0 or (step + 1) == self.max_steps:
                     # Evaluate against the validation set.
@@ -110,6 +112,8 @@ class DigitsRecognition(object):
 
                     self.__do_eval(sess, eval_correct, validation, validation_labels, images_placeholder,
                                    labels_placeholder, keep_prob)
+
+                    sys.stdout.flush()
 
             return self.__prediction(sess, logits, test, images_placeholder, keep_prob)
 
@@ -127,12 +131,11 @@ class DigitsRecognition(object):
 
         # And run one epoch of eval.
         true_count = 0  # Counts the number of correct predictions.
-        steps_per_epoch = data.shape[0] // self.batch_size
-        num_examples = steps_per_epoch * self.batch_size
+        num_examples = data.shape[0]
 
         for step in range(0, num_examples, self.batch_size):
             validation_batch = data[step:step + self.batch_size, :]
-            validation_batch_labels = data_labels[step:step + self.batch_size, :]
+            validation_batch_labels = data_labels[step:step + self.batch_size]
 
             feed_dict = {images_placeholder: validation_batch,
                          labels_placeholder: validation_batch_labels,
@@ -321,12 +324,12 @@ class DigitsRecognition(object):
                          keep_prob: 1.0}
 
             # Run model on test data
-            batch_predicted_labels = sess.run(logits, feed_dict=feed_dict)
-            batch_predicted_labels = tf.nn.softmax(batch_predicted_labels)
+            softmax = tf.nn.softmax(logits)
+            batch_predicted_labels = sess.run(softmax, feed_dict=feed_dict)
 
             # Convert softmax predictions to label and append to all results.
             batch_predicted_labels = np.argmax(batch_predicted_labels, axis=1)
-            predicted_labels.append(batch_predicted_labels)
+            predicted_labels.extend(batch_predicted_labels)
 
         sess.close()
 
@@ -348,9 +351,6 @@ if __name__ == '__main__':
     labels = Utility.read_labels_from_csv(TRAIN_DATA)
     test_features = Utility.read_features_from_csv(TEST_DATA, usecols=None)
 
-    # !!! Comment this line when you run on the full data !!!
-    # features = features[0:1000]
-
     # Separate the training and validation data.
     NR_VAL = int(features.shape[0] * 0.1)
 
@@ -368,3 +368,5 @@ if __name__ == '__main__':
     Utility.create_file('RESULT_data/submission_cnn_v2.csv')
 
     Utility.write_to_file(SAVE_DATA, predictions)
+
+    print('DONE !')
