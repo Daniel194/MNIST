@@ -14,7 +14,7 @@ class DigitsRecognition(object):
         self.batch_size = 100  # Batch size.  Must divide evenly into the dataset sizes.
 
         self.IMAGE_SIZE = 28  # The size of the image in weight and height.
-        self.NR_CHANEL = 1  # The number of canel.
+        self.NR_CHANEL = 1  # The number of chanel.
         self.IMAGE_SHAPE = (self.batch_size, self.IMAGE_SIZE, self.IMAGE_SIZE, self.NR_CHANEL)
 
         self.W_conv1_shape = [3, 3, 1, 32]
