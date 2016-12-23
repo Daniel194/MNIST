@@ -21,13 +21,13 @@ class DigitsRecognition(object):
         self.W_conv1_shape = [3, 3, 1, 32]
         self.b_conv1_shape = [32]
 
-        self.W_conv2_shape = [3, 3, 1, 32]
+        self.W_conv2_shape = [3, 3, 32, 32]
         self.b_conv2_shape = [32]
 
         self.W_conv3_shape = [3, 3, 32, 64]
         self.b_conv3_shape = [64]
 
-        self.W_conv4_shape = [3, 3, 32, 64]
+        self.W_conv4_shape = [3, 3, 64, 64]
         self.b_conv4_shape = [64]
 
         self.W_fc1_shape = [7 * 7 * 64, 1024]
@@ -298,7 +298,7 @@ class DigitsRecognition(object):
         data -= np.mean(data, dtype=np.float64)  # zero-centered
         data /= np.std(data, dtype=np.float64)  # normalization
 
-        return tf.reshape(data, [-1, self.IMAGE_SIZE, self.IMAGE_SIZE, self.NR_CHANEL])
+        return np.reshape(data, (-1, self.IMAGE_SIZE, self.IMAGE_SIZE, self.NR_CHANEL))
 
     def __prediction(self, sess, logits, data, images_placeholder, keep_prob):
         """
@@ -348,10 +348,16 @@ if __name__ == '__main__':
     labels = Utility.read_labels_from_csv(TRAIN_DATA)
     test_features = Utility.read_features_from_csv(TEST_DATA, usecols=None)
 
-    train_features = features[5000:]
-    train_labels = labels[5000:]
-    validation_features = features[0:5000]
-    validation_features_labels = labels[0:5000]
+    # !!! Comment this line when you run on the full data !!!
+    # features = features[0:1000]
+
+    # Separate the training and validation data.
+    NR_VAL = int(features.shape[0] * 0.1)
+
+    train_features = features[NR_VAL:]
+    train_labels = labels[NR_VAL:]
+    validation_features = features[0:NR_VAL]
+    validation_features_labels = labels[0:NR_VAL]
 
     model = DigitsRecognition()
 
