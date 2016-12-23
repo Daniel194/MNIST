@@ -2,19 +2,20 @@ import tensorflow as tf
 import math
 import time
 import functools
+import Utility
+import numpy as np
 
 
 class DigitsRecognition(object):
     def __init__(self):
-        self.NUM_CLASSES = 10  # The MNIST dataset has 10 classes, representing the digits 0 through 9.
 
-        # The MNIST images are always 28x28 pixels.
-        self.IMAGE_SIZE = 28
-        self.IMAGE_PIXELS = self.IMAGE_SIZE * self.IMAGE_SIZE
-
-        self.learning_rate = 0.01  # Initial learning rate.
+        self.learning_rate = 1e-4  # Initial learning rate.
         self.max_steps = 20000  # Number of steps to run trainer.
         self.batch_size = 100  # Batch size.  Must divide evenly into the dataset sizes.
+
+        self.IMAGE_SIZE = 28  # The size of the image in weight and height.
+        self.NR_CHANEL = 1  # The number of canel.
+        self.IMAGE_SHAPE = (self.batch_size, self.IMAGE_SIZE, self.IMAGE_SIZE, self.NR_CHANEL)
 
         self.W_conv1_shape = [3, 3, 1, 32]
         self.b_conv1_shape = [32]
@@ -34,23 +35,31 @@ class DigitsRecognition(object):
         self.W_fc2_shape = [1024, 10]
         self.b_fc2_shape = [10]
 
-    def training(self, training, validation, test):
+        self.dropout_probability = 0.75
+
+    def training(self, training, training_labels, validation, validation_labels):
         """
         Train MNIST for a number of steps.
-        :param training:
-        :param validation:
-        :param test:
+        :param training: The training future.
+        :param training_labels: The true labels for the training future.
+        :param validation: The validation data.
+        :param validation_labels: The true labels for validation labels.
         :return:
         """
 
+        # Preprocessing the training and validation data.
+        training = self.__data_preprocessing(training)
+        validation = self.__data_preprocessing(validation)
+
         # Tell TensorFlow that the model will be built into the default Graph.
         with tf.Graph().as_default():
-            # Generate placeholders for the images and labels.
-            images_placeholder = tf.placeholder(tf.float32, shape=(self.batch_size, self.IMAGE_PIXELS))
+            # Generate placeholders for the images, labels and dropout probability.
+            images_placeholder = tf.placeholder(tf.float32, shape=self.IMAGE_SHAPE)
             labels_placeholder = tf.placeholder(tf.int32, shape=self.batch_size)
+            keep_prob = tf.placeholder(tf.float32)
 
             # Build a Graph that computes predictions from the inference model.
-            logits = self.__inference(images_placeholder)
+            logits = self.__inference(images_placeholder, keep_prob)
 
             # Add to the Graph the Ops for loss calculation.
             loss = self.__loss(logits, labels_placeholder)
@@ -75,7 +84,10 @@ class DigitsRecognition(object):
 
                 # Fill a feed dictionary with the actual set of images and labels
                 # for this particular training step.
-                feed_dict = self.__fill_feed_dict(training, images_placeholder, labels_placeholder)
+                images, images_labels = self.__generate_batch(training, training_labels)
+                feed_dict = {images_placeholder: images,
+                             labels_placeholder: images_labels,
+                             keep_prob: self.dropout_probability}
 
                 # Run one step of the model.  The return values are the activations from the
                 # `train_op` (which is discarded) and the `loss` Op.
@@ -90,66 +102,48 @@ class DigitsRecognition(object):
 
                 # Save a checkpoint and evaluate the model periodically.
                 if (step + 1) % 1000 == 0 or (step + 1) == self.max_steps:
-                    # Evaluate against the training set.
-                    print('Training Data Eval:')
-
-                    self.__do_eval(sess, eval_correct, images_placeholder, labels_placeholder, training)
-
                     # Evaluate against the validation set.
                     print('Validation Data Eval:')
 
-                    self.__do_eval(sess, eval_correct, images_placeholder, labels_placeholder, validation)
+                    self.__do_eval(sess, eval_correct, validation, validation_labels, images_placeholder,
+                                   labels_placeholder, keep_prob)
 
-                    # Evaluate against the test set.
-                    print('Test Data Eval:')
-
-                    self.__do_eval(sess, eval_correct, images_placeholder, labels_placeholder, test)
-
-    def __do_eval(self, sess, eval_correct, images_placeholder, labels_placeholder, data_set):
+    def __do_eval(self, sess, eval_correct, data, data_labels,
+                  images_placeholder, labels_placeholder, keep_prob):
         """
         Runs one evaluation against the full epoch of data.
         :param sess: The session in which the model has been trained.
         :param eval_correct: The Tensor that returns the number of correct predictions.
+        :param data: The validation data.
+        :param data_labels: The true label of validation data.
         :param images_placeholder: The images placeholder.
         :param labels_placeholder: The labels placeholder.
-        :param data_set: The set of images and labels to evaluate, from input_data.read_data_sets().
+        :param keep_prob: The probability to keep a neurone active.
         """
 
         # And run one epoch of eval.
         true_count = 0  # Counts the number of correct predictions.
-        steps_per_epoch = data_set.num_examples // self.batch_size
+        steps_per_epoch = data.shape[0] // self.batch_size
         num_examples = steps_per_epoch * self.batch_size
 
-        for step in range(steps_per_epoch):
-            feed_dict = self.__fill_feed_dict(data_set, images_placeholder, labels_placeholder)
+        for step in range(0, num_examples, self.batch_size):
+            validation_batch = data[step:step + self.batch_size, :]
+            validation_batch_labels = data_labels[step:step + self.batch_size, :]
+
+            feed_dict = {images_placeholder: validation_batch,
+                         labels_placeholder: validation_batch_labels,
+                         keep_prob: 1.0}
             true_count += sess.run(eval_correct, feed_dict=feed_dict)
 
         precision = true_count / num_examples
 
-        print('  Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' % (num_examples, true_count, precision))
+        print('Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' % (num_examples, true_count, precision))
 
-    def __fill_feed_dict(self, data_set, images_pl, labels_pl):
-        """
-        Fills the feed_dict for training the given step.
-        :param data_set: The set of images and labels, from input_data.read_data_sets()
-        :param images_pl: he images placeholder, from placeholder_inputs().
-        :param labels_pl: The labels placeholder, from placeholder_inputs().
-        :return: The feed dictionary mapping from placeholders to values.
-        """
-
-        # Create the feed_dict for the placeholders filled with the next `batch size` examples.
-        images_feed, labels_feed = data_set.next_batch(self.batch_size)
-        feed_dict = {
-            images_pl: images_feed,
-            labels_pl: labels_feed,
-        }
-
-        return feed_dict
-
-    def __inference(self, images):
+    def __inference(self, images, keep_prob):
         """
         Build the MNIST model up to where it may be used for inference.
         :param images: Images placeholder, from inputs().
+        :param keep_prob: the probability to keep a neuron data in Dropout Layer.
         :return: Output tensor with the computed logits.
         """
 
@@ -209,7 +203,6 @@ class DigitsRecognition(object):
 
         # First Dropout
         with tf.name_scope('dropout1'):
-            keep_prob = tf.placeholder(tf.float32)
             dropout1 = tf.nn.dropout(fc1, keep_prob)
 
         # Second Fully Connected Layer
@@ -224,17 +217,17 @@ class DigitsRecognition(object):
         return fc2
 
     @staticmethod
-    def __loss(logits, labels):
+    def __loss(softmax_logits, true_labels):
         """
         Calculates the loss from the logits and the labels.
-        :param logits: Logits tensor, float - [batch_size, NUM_CLASSES].
-        :param labels: Labels tensor, int32 - [batch_size].
+        :param softmax_logits: Logits tensor, float - [batch_size, NUM_CLASSES].
+        :param true_labels: Labels tensor, int32 - [batch_size].
         :return: Loss tensor of type float.
         """
 
-        labels = tf.to_int64(labels)
+        true_labels = tf.to_int64(true_labels)
 
-        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, labels, name='xentropy')
+        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(softmax_logits, true_labels, name='xentropy')
 
         loss = tf.reduce_mean(cross_entropy, name='xentropy_mean')
 
@@ -243,10 +236,6 @@ class DigitsRecognition(object):
     def __training(self, loss):
         """
         Sets up the training Ops.
-        Creates a summarizer to track the loss over time in TensorBoard.
-        Creates an optimizer and applies the gradients to all trainable variables.
-        The Op returned by this function is what must be passed to the
-        `sess.run()` call to cause the model to train.
         :param loss: Loss tensor, from loss().
         :return: The Op for training.
         """
@@ -267,11 +256,11 @@ class DigitsRecognition(object):
         return train_op
 
     @staticmethod
-    def __evaluation(logits, labels):
+    def __evaluation(logits, true_labels):
         """
         Evaluate the quality of the logits at predicting the label.
         :param logits: Logits tensor, float - [batch_size, NUM_CLASSES].
-        :param labels: Labels tensor, int32 - [batch_size], with values in the range [0, NUM_CLASSES).
+        :param true_labels: Labels tensor, int32 - [batch_size], with values in the range [0, NUM_CLASSES).
         :return: A scalar int32 tensor with the number of examples (out of batch_size) that were predicted correctly.
         """
 
@@ -279,26 +268,51 @@ class DigitsRecognition(object):
         # It returns a bool tensor with shape [batch_size] that is true for
         # the examples where the label is in the top k (here k=1)
         # of all logits for that example.
-        correct = tf.nn.in_top_k(logits, labels, 1)
+        correct = tf.nn.in_top_k(logits, true_labels, 1)
 
         # Return the number of true entries.
         return tf.reduce_sum(tf.cast(correct, tf.int32))
 
+    def __generate_batch(self, data, data_labels):
+        """
+        Generate Batches.
+        :param data: the features data.
+        :param data_labels: the labels data.
+        :return: return labels and features.
+        """
 
-def main(_):
-    if tf.gfile.Exists(log_dir):
-        tf.gfile.DeleteRecursively(log_dir)
+        batch_indexes = np.random.random_integers(0, len(data) - 1, self.batch_size)
+        batch_dat = data[batch_indexes]
+        batch_labels = data_labels[batch_indexes]
 
-    tf.gfile.MakeDirs(log_dir)
+        return batch_dat, batch_labels
 
-    # run_training()
+    def __data_preprocessing(self, data):
+        """
+        Preprocesing the MNIST data.
+        :param data: the data.
+        :return: the zero-centered and normalization data.
+        """
+
+        data -= np.mean(data, dtype=np.float64)  # zero-centered
+        data /= np.std(data, dtype=np.float64)  # normalization
+
+        return tf.reshape(data, [-1, self.IMAGE_SIZE, self.IMAGE_SIZE, self.NR_CHANEL])
 
 
 if __name__ == '__main__':
-    # Directory to put the input data.
-    log_dir = '/tmp/tensorflow/mnist/input_data'
+    # Read the feature and the labels.
+    features = Utility.read_features_from_csv('MNIST_data/train.csv')
+    labels = Utility.read_labels_from_csv('MNIST_data/train.csv')
+    test_features = Utility.read_features_from_csv('MNIST_data/test.csv', usecols=None)
 
-    # Directory to put the input data.
-    input_data_dir = '/tmp/tensorflow/mnist/input_data'
+    train_features = features[5000:]
+    train_labels = labels[5000:]
+    validation_features = features[0:5000]
+    validation_features_labels = labels[0:5000]
 
-    tf.app.run(main=main)
+    model = DigitsRecognition()
+
+    model.training(train_features, train_labels, validation_features, validation_features_labels)
+
+    Utility.create_file('RESULT_data/submission_cnn_v2.csv')

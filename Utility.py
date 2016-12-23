@@ -13,7 +13,6 @@ def read_features_from_csv(filename, usecols=range(1, 785)):
     """
 
     features = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=usecols, dtype=np.float32)
-    features = np.divide(features, 255.0)  # scale 0..255 to 0..1
 
     return features
 
@@ -25,9 +24,7 @@ def read_labels_from_csv(filename):
     :return: return the labels form the filename.
     """
 
-    labels_orig = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=0, dtype=np.int)
-    labels = np.zeros([len(labels_orig), 10])
-    labels[np.arange(len(labels_orig)), labels_orig] = 1
+    labels = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=0, dtype=np.int)
     labels = labels.astype(np.float32)
 
     return labels
