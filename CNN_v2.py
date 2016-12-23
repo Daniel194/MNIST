@@ -37,19 +37,21 @@ class DigitsRecognition(object):
 
         self.dropout_probability = 0.75
 
-    def training(self, training, training_labels, validation, validation_labels):
+    def prediction(self, training, training_labels, validation, validation_labels, test):
         """
         Train MNIST for a number of steps.
         :param training: The training future.
         :param training_labels: The true labels for the training future.
         :param validation: The validation data.
         :param validation_labels: The true labels for validation labels.
-        :return:
+        :param test: The test data.
+        :return: Return all labels of test data.
         """
 
-        # Preprocessing the training and validation data.
+        # Preprocessing the training, validation adn test data.
         training = self.__data_preprocessing(training)
         validation = self.__data_preprocessing(validation)
+        test = self.__data_preprocessing(test)
 
         # Tell TensorFlow that the model will be built into the default Graph.
         with tf.Graph().as_default():
@@ -108,8 +110,9 @@ class DigitsRecognition(object):
                     self.__do_eval(sess, eval_correct, validation, validation_labels, images_placeholder,
                                    labels_placeholder, keep_prob)
 
-    def __do_eval(self, sess, eval_correct, data, data_labels,
-                  images_placeholder, labels_placeholder, keep_prob):
+            return self.__prediction(sess, logits, test, images_placeholder, keep_prob)
+
+    def __do_eval(self, sess, eval_correct, data, data_labels, images_placeholder, labels_placeholder, keep_prob):
         """
         Runs one evaluation against the full epoch of data.
         :param sess: The session in which the model has been trained.
@@ -299,12 +302,47 @@ class DigitsRecognition(object):
 
         return tf.reshape(data, [-1, self.IMAGE_SIZE, self.IMAGE_SIZE, self.NR_CHANEL])
 
+    def __prediction(self, sess, logits, data, images_placeholder, keep_prob):
+        """
+        Predicting the labels of the data.
+        :param sess: The session in which the model has been trained.
+        :param logits: The tenssor that calculate the logits.
+        :param data: The data.
+        :param images_placeholder: The images placeholder.
+        :param keep_prob: The probability to keep a neurone active.
+        :return: return the labels predicted.
+        """
+
+        steps_per_epoch = data.shape[0] // self.batch_size
+        num_examples = steps_per_epoch * self.batch_size
+        predicted_labels = []
+
+        for step in range(0, num_examples, self.batch_size):
+            data_batch = data[step:step + self.batch_size, :]
+            feed_dict = {images_placeholder: data_batch,
+                         keep_prob: 1.0}
+
+            # Run model on test data
+            batch_predicted_labels = sess.run(logits, feed_dict=feed_dict)
+            batch_predicted_labels = tf.nn.softmax(batch_predicted_labels)
+
+            # Convert softmax predictions to label and append to all results.
+            batch_predicted_labels = np.argmax(batch_predicted_labels, axis=1)
+            predicted_labels.append(batch_predicted_labels)
+
+        return predicted_labels
+
 
 if __name__ == '__main__':
+    # CONSTANTS
+    TRAIN_DATA = 'MNIST_data/train.csv'
+    TEST_DATA = 'MNIST_data/test.csv'
+    SAVE_DATA = 'RESULT_data/submission_cnn_v2.csv'
+
     # Read the feature and the labels.
-    features = Utility.read_features_from_csv('MNIST_data/train.csv')
-    labels = Utility.read_labels_from_csv('MNIST_data/train.csv')
-    test_features = Utility.read_features_from_csv('MNIST_data/test.csv', usecols=None)
+    features = Utility.read_features_from_csv(TRAIN_DATA)
+    labels = Utility.read_labels_from_csv(TRAIN_DATA)
+    test_features = Utility.read_features_from_csv(TEST_DATA, usecols=None)
 
     train_features = features[5000:]
     train_labels = labels[5000:]
@@ -313,6 +351,10 @@ if __name__ == '__main__':
 
     model = DigitsRecognition()
 
-    model.training(train_features, train_labels, validation_features, validation_features_labels)
+    predictions = model.prediction(train_features, train_labels, validation_features,
+                                   validation_features_labels, test_features)
 
+    # Save the predictions to label
     Utility.create_file('RESULT_data/submission_cnn_v2.csv')
+
+    Utility.write_to_file(SAVE_DATA, predictions)

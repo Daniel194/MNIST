@@ -12,9 +12,7 @@ def read_features_from_csv(filename, usecols=range(1, 785)):
     :return: return the features.
     """
 
-    features = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=usecols, dtype=np.float32)
-
-    return features
+    return np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=usecols, dtype=np.float32)
 
 
 def read_labels_from_csv(filename):
@@ -24,10 +22,7 @@ def read_labels_from_csv(filename):
     :return: return the labels form the filename.
     """
 
-    labels = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=0, dtype=np.int)
-    labels = labels.astype(np.float32)
-
-    return labels
+    return np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=0, dtype=np.int32)
 
 
 def generate_batch(features, labels, batch_size):
@@ -82,6 +77,21 @@ def append_data_to_file(filename, predicted_labels, start):
      """
 
     predicted_labels = [np.arange(start + 1, 1 + start + len(predicted_labels)), predicted_labels]
+    predicted_labels = np.transpose(predicted_labels)
+
+    with open(filename, 'a') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerows(label for label in predicted_labels)
+
+
+def write_to_file(filename, predicted_labels):
+    """
+    Wirete the labels in a csv file.
+    :param filename: the filename where will be append the labels.
+    :param predicted_labels: the prediction labels.
+    """
+
+    predicted_labels = [np.arange(1, 1 + len(predicted_labels)), predicted_labels]
     predicted_labels = np.transpose(predicted_labels)
 
     with open(filename, 'a') as csvfile:
