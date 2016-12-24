@@ -1,5 +1,5 @@
 """
-ACCURACY : 99.0 %
+ACCURACY : 99.014 %
 """
 
 import tensorflow as tf
@@ -344,8 +344,8 @@ if __name__ == '__main__':
     # CONSTANTS
     TRAIN_DATA = 'MNIST_data/train.csv'
     TEST_DATA = 'MNIST_data/test.csv'
-    SAVE_DATA = 'RESULT_data/submission_cnn_v2.csv'
-    OUTPUT_FILE = 'RESULT_data/output_cnn_v2.txt'
+    SAVE_DATA = 'RESULT_data/submission_cnn_v2_2.csv'
+    OUTPUT_FILE = 'RESULT_data/output_cnn_v2_2.txt'
 
     # Redirect the output to a file
     sys.stdout = open(OUTPUT_FILE, 'w')
@@ -356,13 +356,19 @@ if __name__ == '__main__':
     test_features = Utility.read_features_from_csv(TEST_DATA, usecols=None)
 
     # Separate the training and validation data.
-    NR_VAL = int(features.shape[0] * 0.1)
-    # NR_VAL = 0
+    # NR_VAL = int(features.shape[0] * 0.1)
+    NR_VAL = 0
 
-    train_features = features[NR_VAL:]
-    train_labels = labels[NR_VAL:]
-    validation_features = features[0:NR_VAL]
-    validation_features_labels = labels[0:NR_VAL]
+    if NR_VAL == 0:
+        train_features = features
+        train_labels = labels
+        validation_features = features[0:100]
+        validation_features_labels = labels[0:100]
+    else:
+        train_features = features[NR_VAL:]
+        train_labels = labels[NR_VAL:]
+        validation_features = features[0:NR_VAL]
+        validation_features_labels = labels[0:NR_VAL]
 
     model = DigitsRecognition()
 
@@ -370,7 +376,7 @@ if __name__ == '__main__':
                                    validation_features_labels, test_features)
 
     # Save the predictions to label
-    Utility.create_file('RESULT_data/submission_cnn_v2.csv')
+    Utility.create_file(SAVE_DATA)
 
     Utility.write_to_file(SAVE_DATA, predictions)
 
