@@ -1,3 +1,7 @@
+"""
+ACCURACY : 99.0 %
+"""
+
 import tensorflow as tf
 import math
 import time
@@ -353,6 +357,7 @@ if __name__ == '__main__':
 
     # Separate the training and validation data.
     NR_VAL = int(features.shape[0] * 0.1)
+    # NR_VAL = 0
 
     train_features = features[NR_VAL:]
     train_labels = labels[NR_VAL:]
