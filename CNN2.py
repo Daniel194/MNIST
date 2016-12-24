@@ -1,460 +1,429 @@
+"""
+ACCURACY : ???
+"""
+
 import tensorflow as tf
-import numpy as np
 import math
-import Utility as util
+import time
+import functools
+import Utility
+import numpy as np
+import sys
 
 
-class ConvolutionNeuralNetwork(object):
-    def __init__(self, d, k):
+class DigitsRecognition(object):
+    def __init__(self):
+
+        self.learning_rate = 1e-4  # Initial learning rate.
+        self.max_steps = 20000  # Number of steps to run trainer.
+        self.batch_size = 100  # Batch size.  Must divide evenly into the dataset sizes.
+
+        self.IMAGE_SIZE = 28  # The size of the image in weight and height.
+        self.NR_CHANEL = 1  # The number of chanel.
+        self.IMAGE_SHAPE = (self.batch_size, self.IMAGE_SIZE, self.IMAGE_SIZE, self.NR_CHANEL)
+
+        self.W_conv1_shape = [5, 5, 1, 64]
+        self.b_conv1_shape = [64]
+
+        self.W_conv2_shape = [5, 5, 64, 128]
+        self.b_conv2_shape = [128]
+
+        self.W_conv3_shape = [5, 5, 128, 256]
+        self.b_conv3_shape = [256]
+
+        self.W_conv4_shape = [3, 3, 256, 256]
+        self.b_conv4_shape = [256]
+
+        self.W_conv5_shape = [3, 3, 512, 512]
+        self.b_conv5_shape = [512]
+
+        self.W_conv6_shape = [3, 3, 512, 512]
+        self.b_conv6_shape = [512]
+
+        self.W_fc1_shape = [4608, 2048]
+        self.b_fc1_shape = [2048]
+
+        self.W_fc2_shape = [2048, 10]
+        self.b_fc2_shape = [10]
+
+        self.dropout1 = 0.8
+        self.dropout2 = 0.8
+        self.dropout3 = 0.5
+
+    def prediction(self, training, training_labels, validation, validation_labels, test):
         """
-        :param d: dimensionality
-        :param k: number of classes
+        Train MNIST for a number of steps.
+        :param training: The training future.
+        :param training_labels: The true labels for the training future.
+        :param validation: The validation data.
+        :param validation_labels: The true labels for validation labels.
+        :param test: The test data.
+        :return: Return all labels of test data.
         """
 
-        # Parameter
-        self.D = d
-        self.K = k
-        self.NR_VALIDATION_DATA = 50
-        self.NR_ITERATION = 20000
-        self.BATCH_SIZE = 50
-        self.SHOW_ACC = 100
+        # Preprocessing the training, validation adn test data.
+        training = self.__data_preprocessing(training)
+        validation = self.__data_preprocessing(validation)
+        test = self.__data_preprocessing(test)
 
-        # Hyperparameter
-        self.TRAIN_STEP = 1e-4
-        self.EPSILON = 1e-3
-        self.BETA = 1e-3
+        # Tell TensorFlow that the model will be built into the default Graph.
+        with tf.Graph().as_default():
+            # Generate placeholders for the images, labels and dropout probability.
+            images_placeholder = tf.placeholder(tf.float32, shape=self.IMAGE_SHAPE)
+            labels_placeholder = tf.placeholder(tf.int32, shape=self.batch_size)
+            keep_prob1 = tf.placeholder(tf.float32)
+            keep_prob2 = tf.placeholder(tf.float32)
+            keep_prob3 = tf.placeholder(tf.float32)
 
-        # Shape
-        self.W1_1_SHAPE = [3, 3, 1, 128]
-        self.W1_2_SHAPE = [3, 3, 128, 128]
-        self.W2_1_SHAPE = [3, 3, 128, 256]
-        self.W2_2_SHAPE = [3, 3, 256, 256]
+            # Build a Graph that computes predictions from the inference model.
+            logits = self.__inference(images_placeholder, keep_prob1, keep_prob2, keep_prob3)
 
-        self.WFC_1_SHAPE = [12544, 4096]
-        self.WFC_2_SHAPE = [4096, 2048]
-        self.WFC_3_SHAPE = [2048, k]
+            # Add to the Graph the Ops for loss calculation.
+            loss = self.__loss(logits, labels_placeholder)
 
-        self.B1_SHAPE = [128]
-        self.B2_SHAPE = [256]
+            # Add to the Graph the Ops that calculate and apply gradients.
+            train_op = self.__training(loss)
 
-        self.BFC1_SHAPE = [4096]
-        self.BFC2_SHAPE = [2048]
-        self.BFC3_SHAPE = [k]
+            # Add the Op to compare the logits to the labels during evaluation.
+            eval_correct = self.__evaluation(logits, labels_placeholder)
 
-    def training(self, features, labels):
+            # Create a session for running Ops on the Graph.
+            sess = tf.Session()
+
+            # And then after everything is built:
+
+            # Run the Op to initialize the variables.
+            sess.run(tf.initialize_all_variables())
+
+            # Start the training loop.
+            for step in range(self.max_steps):
+                start_time = time.time()
+
+                # Fill a feed dictionary with the actual set of images and labels
+                # for this particular training step.
+                images, images_labels = self.__generate_batch(training, training_labels)
+                feed_dict = {images_placeholder: images,
+                             labels_placeholder: images_labels,
+                             keep_prob1: self.dropout1,
+                             keep_prob2: self.dropout2,
+                             keep_prob3: self.dropout3}
+
+                # Run one step of the model.  The return values are the activations from the
+                # `train_op` (which is discarded) and the `loss` Op.
+                _, loss_value = sess.run([train_op, loss], feed_dict=feed_dict)
+
+                duration = time.time() - start_time
+
+                # Write the summaries and print an overview fairly often.
+                if step % 100 == 0:
+                    # Print status to stdout.
+                    print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, duration))
+
+                    sys.stdout.flush()
+
+                # Save a checkpoint and evaluate the model periodically.
+                if (step + 1) % 1000 == 0 or (step + 1) == self.max_steps:
+                    # Evaluate against the validation set.
+                    print('Validation Data Eval:')
+
+                    self.__do_eval(sess, eval_correct, validation, validation_labels, images_placeholder,
+                                   labels_placeholder, keep_prob1, keep_prob2, keep_prob3)
+
+                    sys.stdout.flush()
+
+            return self.__prediction(sess, logits, test, images_placeholder, keep_prob1, keep_prob2, keep_prob3)
+
+    def __do_eval(self, sess, eval_correct, data, data_labels, images_placeholder, labels_placeholder, keep_prob1,
+                  keep_prob2, keep_prob3):
         """
-        Training the Convolutional Neural Network
-        :param features: the training data [50000 x 784]
-        :param labels: the true label for X  [50000 x 1]
-        :return: return a dictionary which contains all learned parameters
+        Runs one evaluation against the full epoch of data.
+        :param sess: The session in which the model has been trained.
+        :param eval_correct: The Tensor that returns the number of correct predictions.
+        :param data: The validation data.
+        :param data_labels: The true label of validation data.
+        :param images_placeholder: The images placeholder.
+        :param labels_placeholder: The labels placeholder.
+        :param keep_prob1: The probability to keep a neurone active.
+        :param keep_prob2: The probability to keep a neurone active.
+        :param keep_prob3: The probability to keep a neurone active.
         """
 
-        # Preprocessing the data
-        features = self.__preprocessing(features)  # [50000 x 784]
+        # And run one epoch of eval.
+        true_count = 0  # Counts the number of correct predictions.
+        num_examples = data.shape[0]
 
-        # Split data into training and validation sets.
-        train_features = features[self.NR_VALIDATION_DATA:]
-        train_labels = labels[self.NR_VALIDATION_DATA:]
-        validation_features = features[0:self.NR_VALIDATION_DATA]
-        validation_labels = labels[0:self.NR_VALIDATION_DATA]
+        for step in range(0, num_examples, self.batch_size):
+            validation_batch = data[step:step + self.batch_size, :]
+            validation_batch_labels = data_labels[step:step + self.batch_size]
 
-        # Launch the session
-        sess = tf.InteractiveSession()
+            feed_dict = {images_placeholder: validation_batch,
+                         labels_placeholder: validation_batch_labels,
+                         keep_prob1: 1.0,
+                         keep_prob2: 1.0,
+                         keep_prob3: 1.0}
+            true_count += sess.run(eval_correct, feed_dict=feed_dict)
 
-        # Placeholders
-        x = tf.placeholder(tf.float32, shape=[None, self.D])  # the data
-        y_ = tf.placeholder(tf.float32, shape=[None, self.K])  # the true labels
+        precision = true_count / num_examples
 
-        # Reshape
-        x_image = tf.reshape(x, [-1, 28, 28, 1])
+        print('Num examples: %d  Num correct: %d  Precision @ 1: %0.04f' % (num_examples, true_count, precision))
 
-        # Initialize the weights and the biases
-        # First Layer
-        W1_1 = self.__weight_variable(self.W1_1_SHAPE)  # [ 3 x 3 x 1 x 128 ]
-        scale1_1 = tf.Variable(tf.ones(self.B1_SHAPE))  # [128]
-        beta1_1 = tf.Variable(tf.zeros(self.B1_SHAPE))  # [128]
+    def __inference(self, images, keep_prob1, keep_prob2, keep_prob3):
+        """
+        Build the MNIST model up to where it may be used for inference.
+        :param images: Images placeholder, from inputs().
+        :param keep_prob1: the probability to keep a neuron data in Dropout Layer.
+        :param keep_prob2: the probability to keep a neuron data in Dropout Layer.
+        :param keep_prob3: the probability to keep a neuron data in Dropout Layer.
+        :return: Output tensor with the computed logits.
+        """
 
-        W1_2 = self.__weight_variable(self.W1_2_SHAPE)  # [ 3 x 3 x 128 x 128 ]
-        scale1_2 = tf.Variable(tf.ones(self.B1_SHAPE))  # [128]
-        beta1_2 = tf.Variable(tf.zeros(self.B1_SHAPE))  # [128]
+        # First Convolutional Layer
+        with tf.name_scope('hidden1'):
+            nr_units = functools.reduce(lambda x, y: x * y, self.W_conv1_shape)
 
-        # Second Layer
-        W2_1 = self.__weight_variable(self.W2_1_SHAPE)  # [ 3 x 3 x 128 x 256 ]
-        scale2_1 = tf.Variable(tf.ones(self.B2_SHAPE))  # [256]
-        beta2_1 = tf.Variable(tf.zeros(self.B2_SHAPE))  # [256]
+            weights = tf.Variable(tf.truncated_normal(self.W_conv1_shape, stddev=1.0 / math.sqrt(float(nr_units))),
+                                  name='weights')
+            biases = tf.Variable(tf.zeros(self.b_conv1_shape), name='biases')
+            hidden1 = tf.nn.relu(tf.nn.conv2d(images, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
 
-        W2_2 = self.__weight_variable(self.W2_2_SHAPE)  # [ 3 x 3 x 256 x 256 ]
-        scale2_2 = tf.Variable(tf.ones(self.B2_SHAPE))  # [256]
-        beta2_2 = tf.Variable(tf.zeros(self.B2_SHAPE))  # [256]
+        # Second Convolutional Layer
+        with tf.name_scope('hidden2'):
+            nr_units = functools.reduce(lambda x, y: x * y, self.W_conv2_shape)
 
-        # Full Connected Layer 1
-        WFC1 = self.__weight_variable(self.WFC_1_SHAPE)  # [ 12544 x 4096 ]
-        scaleFC1 = tf.Variable(tf.ones(self.BFC1_SHAPE))  # [4096]
-        betaFC1 = tf.Variable(tf.zeros(self.BFC1_SHAPE))  # [4096]
+            weights = tf.Variable(tf.truncated_normal(self.W_conv2_shape, stddev=1.0 / math.sqrt(float(nr_units))),
+                                  name='weights')
+            biases = tf.Variable(tf.zeros(self.b_conv2_shape), name='biases')
+            hidden2 = tf.nn.relu(tf.nn.conv2d(hidden1, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
 
-        # Full Connected Layer 2
-        WFC2 = self.__weight_variable(self.WFC_2_SHAPE)  # [ 4096 x 2048 ]
-        scaleFC2 = tf.Variable(tf.ones(self.BFC2_SHAPE))  # [2048]
-        betaFC2 = tf.Variable(tf.zeros(self.BFC2_SHAPE))  # [2048]
+        # First Pool Layer
+        with tf.name_scope('pool1'):
+            pool1 = tf.nn.max_pool(hidden2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
-        # Full Connected Layer 3
-        WFC3 = self.__weight_variable(self.WFC_3_SHAPE)  # [ 2048 x 10 ]
-        bFC3 = self.__bias_variable(self.BFC3_SHAPE)  # [10]
+        # Third Convolutional Layer
+        with tf.name_scope('hidden3'):
+            nr_units = functools.reduce(lambda x, y: x * y, self.W_conv3_shape)
 
-        # First Layer
-        Z1_1 = self.__convolution(x_image, W1_1)
-        batch_mean1_1, batch_var1_1 = tf.nn.moments(Z1_1, [0])
-        BN1 = tf.nn.batch_normalization(Z1_1, batch_mean1_1, batch_var1_1, beta1_1, scale1_1, self.EPSILON)
-        H1 = self.__activation(BN1)  # [50000 x 28 x 28 x 128]
+            weights = tf.Variable(tf.truncated_normal(self.W_conv3_shape, stddev=1.0 / math.sqrt(float(nr_units))),
+                                  name='weights')
+            biases = tf.Variable(tf.zeros(self.b_conv3_shape), name='biases')
+            hidden3 = tf.nn.relu(tf.nn.conv2d(pool1, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
 
-        Z1_2 = self.__convolution(H1, W1_2)
-        batch_mean1_2, batch_var1_2 = tf.nn.moments(Z1_2, [0])
-        BN1_2 = tf.nn.batch_normalization(Z1_2, batch_mean1_2, batch_var1_2, beta1_2, scale1_2, self.EPSILON)
-        H1_2 = self.__activation(BN1_2)  # [50000 x 28 x 28 x 128]
+        # Fourth Convolutional Layer
+        with tf.name_scope('hidden4'):
+            nr_units = functools.reduce(lambda x, y: x * y, self.W_conv4_shape)
 
-        H_pool1 = self.__pool(H1_2)  # [50000 x 14 x 14 x 128]
+            weights = tf.Variable(tf.truncated_normal(self.W_conv4_shape, stddev=1.0 / math.sqrt(float(nr_units))),
+                                  name='weights')
+            biases = tf.Variable(tf.zeros(self.b_conv4_shape), name='biases')
+            hidden4 = tf.nn.relu(tf.nn.conv2d(hidden3, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
 
-        # Second Layer
-        Z2_1 = self.__convolution(H_pool1, W2_1)
-        batch_mean2_1, batch_var2_1 = tf.nn.moments(Z2_1, [0])
-        BN2 = tf.nn.batch_normalization(Z2_1, batch_mean2_1, batch_var2_1, beta2_1, scale2_1, self.EPSILON)
-        H2 = self.__activation(BN2)  # [50000 x 14 x 14 x 256]
+        # Second Pool Layer
+        with tf.name_scope('pool2'):
+            pool2 = tf.nn.max_pool(hidden4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
-        Z2_2 = self.__convolution(H2, W2_2)
-        batch_mean2_2, batch_var2_2 = tf.nn.moments(Z2_2, [0])
-        BN2_2 = tf.nn.batch_normalization(Z2_2, batch_mean2_2, batch_var2_2, beta2_2, scale2_2, self.EPSILON)
-        H2_2 = self.__activation(BN2_2)  # [50000 x 14 x 14 x 256]
+        # First Dropout
+        with tf.name_scope('dropout1'):
+            dropout1 = tf.nn.dropout(pool2, keep_prob1)
 
-        H_pool2 = self.__pool(H2_2)  # [50000 x 7 x 7 x 256]
+        # Fifth Convolutional Layer
+        with tf.name_scope('hidden5'):
+            nr_units = functools.reduce(lambda x, y: x * y, self.W_conv5_shape)
 
-        # First Full Connected Layer
-        H_pool3_flat = tf.reshape(H_pool2, [-1, self.WFC_1_SHAPE[0]])  # [ 50000 x 12544 ]
+            weights = tf.Variable(tf.truncated_normal(self.W_conv5_shape, stddev=1.0 / math.sqrt(float(nr_units))),
+                                  name='weights')
+            biases = tf.Variable(tf.zeros(self.b_conv5_shape), name='biases')
+            hidden5 = tf.nn.relu(tf.nn.conv2d(dropout1, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
 
-        Z_FC1 = tf.matmul(H_pool3_flat, WFC1)
-        batch_mean_fc1, batch_var_fc1 = tf.nn.moments(Z_FC1, [0])
-        BN_FC1 = tf.nn.batch_normalization(Z_FC1, batch_mean_fc1, batch_var_fc1, betaFC1, scaleFC1, self.EPSILON)
-        H_fc1 = self.__activation(BN_FC1)  # [ 50000 x 4096 ]
+        # First Dropout
+        with tf.name_scope('dropout2'):
+            dropout2 = tf.nn.dropout(hidden5, keep_prob2)
 
-        # Dropout
-        keep_prob = tf.placeholder(tf.float32)
-        H_fc1_drop = tf.nn.dropout(H_fc1, keep_prob)  # [ 50000 x 4096 ]
+        # Fifth Convolutional Layer
+        with tf.name_scope('hidden6'):
+            nr_units = functools.reduce(lambda x, y: x * y, self.W_conv6_shape)
 
-        # Second Full Connected Layer
-        Z_FC2 = tf.matmul(H_fc1_drop, WFC2)
-        batch_mean_fc2, batch_var_fc2 = tf.nn.moments(Z_FC2, [0])
-        BN_FC2 = tf.nn.batch_normalization(Z_FC2, batch_mean_fc2, batch_var_fc2, betaFC2, scaleFC2, self.EPSILON)
-        H_fc2 = self.__activation(BN_FC2)  # [ 50000 x 2048 ]
+            weights = tf.Variable(tf.truncated_normal(self.W_conv6_shape, stddev=1.0 / math.sqrt(float(nr_units))),
+                                  name='weights')
+            biases = tf.Variable(tf.zeros(self.b_conv6_shape), name='biases')
+            hidden6 = tf.nn.relu(tf.nn.conv2d(dropout2, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
 
-        # Dropout
-        H_fc2_drop = tf.nn.dropout(H_fc2, keep_prob)  # [ 50000 x 2048 ]
+        # Second Pool Layer
+        with tf.name_scope('pool3'):
+            pool3 = tf.nn.max_pool(hidden6, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
-        # Third Full Connected Layer
-        H_fc3 = tf.matmul(H_fc2_drop, WFC3) + bFC3  # [ 50000 x 10 ]
+        # First Dropout
+        with tf.name_scope('dropout3'):
+            dropout3 = tf.nn.dropout(pool3, keep_prob3)
 
-        y_conv = tf.nn.softmax(H_fc3)
+        # First Fully Connected Layer
+        with tf.name_scope('fc1'):
+            nr_units = functools.reduce(lambda x, y: x * y, self.W_fc1_shape)
+            dropout3_flat = tf.reshape(dropout3, [-1, self.W_fc1_shape[0]])
 
-        # Loss Function loss fn == avg(y'*log(y))
-        loss_fn = -tf.reduce_sum(y_ * tf.log(y_conv), reduction_indices=[1]) + self.BETA * tf.nn.l2_loss(
-            W1_1) + self.BETA * tf.nn.l2_loss(W1_2) + self.BETA * tf.nn.l2_loss(W2_1) + self.BETA * tf.nn.l2_loss(
-            W2_2) + self.BETA * tf.nn.l2_loss(WFC1) + self.BETA * tf.nn.l2_loss(WFC2) + self.BETA * tf.nn.l2_loss(WFC3)
+            weights = tf.Variable(tf.truncated_normal(self.W_fc1_shape, stddev=1.0 / math.sqrt(float(nr_units))),
+                                  name='weights')
+            biases = tf.Variable(tf.zeros(self.b_fc1_shape), name='biases')
+            fc1 = tf.nn.relu(tf.matmul(dropout3_flat, weights) + biases)
 
-        loss_fn_mean = tf.reduce_mean(loss_fn)
+        # Second Fully Connected Layer
+        with tf.name_scope('fc2'):
+            nr_units = functools.reduce(lambda x, y: x * y, self.W_fc2_shape)
 
-        # Training step - ADAM solver
-        train_step = tf.train.AdamOptimizer(self.TRAIN_STEP).minimize(loss_fn_mean)
+            weights = tf.Variable(tf.truncated_normal(self.W_fc2_shape, stddev=1.0 / math.sqrt(float(nr_units))),
+                                  name='weights')
+            biases = tf.Variable(tf.zeros(self.b_fc2_shape), name='biases')
+            fc2 = tf.matmul(fc1, weights) + biases
 
-        # Evaluate the model
-        correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+        return fc2
 
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    @staticmethod
+    def __loss(softmax_logits, true_labels):
+        """
+        Calculates the loss from the logits and the labels.
+        :param softmax_logits: Logits tensor, float - [batch_size, NUM_CLASSES].
+        :param true_labels: Labels tensor, int32 - [batch_size].
+        :return: Loss tensor of type float.
+        """
 
-        # Initialize all variables
-        sess.run(tf.initialize_all_variables())
+        true_labels = tf.to_int64(true_labels)
 
-        for i in range(self.NR_ITERATION):
-            batch = util.generate_batch(train_features, train_labels, self.BATCH_SIZE)
-            train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(softmax_logits, true_labels, name='xentropy')
 
-            if i % self.SHOW_ACC == 0:
-                train_accuracy = accuracy.eval(feed_dict={x: validation_features, y_: validation_labels, keep_prob: 1})
+        loss = tf.reduce_mean(cross_entropy, name='xentropy_mean')
 
-                print('Step - ', i, ' - Acc : ', train_accuracy)
+        return loss
 
-        W1_1_final = W1_1.eval()
-        beta1_1_final = beta1_1.eval()
-        scale1_1_final = scale1_1.eval()
+    def __training(self, loss):
+        """
+        Sets up the training Ops.
+        :param loss: Loss tensor, from loss().
+        :return: The Op for training.
+        """
 
-        W1_2_final = W1_2.eval()
-        beta1_2_final = beta1_2.eval()
-        scale1_2_final = scale1_2.eval()
+        # Add a scalar summary for the snapshot loss.
+        tf.summary.scalar('loss', loss)
 
-        W2_1_final = W2_1.eval()
-        beta2_1_final = beta2_1.eval()
-        scale2_1_final = scale2_1.eval()
+        # Create the gradient descent optimizer with the given learning rate.
+        optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
-        W2_2_final = W2_2.eval()
-        beta2_2_final = beta2_2.eval()
-        scale2_2_final = scale2_2.eval()
+        # Create a variable to track the global step.
+        global_step = tf.Variable(0, name='global_step', trainable=False)
 
-        WFC1_final = WFC1.eval()
-        betaFC1_final = betaFC1.eval()
-        scaleFC1_final = scaleFC1.eval()
+        # Use the optimizer to apply the gradients that minimize the loss
+        # (and also increment the global step counter) as a single training step.
+        train_op = optimizer.minimize(loss, global_step=global_step)
 
-        WFC2_final = WFC2.eval()
-        betaFC2_final = betaFC2.eval()
-        scaleFC2_final = scaleFC2.eval()
+        return train_op
 
-        WFC3_final = WFC3.eval()
-        bFC3_final = bFC3.eval()
+    @staticmethod
+    def __evaluation(logits, true_labels):
+        """
+        Evaluate the quality of the logits at predicting the label.
+        :param logits: Logits tensor, float - [batch_size, NUM_CLASSES].
+        :param true_labels: Labels tensor, int32 - [batch_size], with values in the range [0, NUM_CLASSES).
+        :return: A scalar int32 tensor with the number of examples (out of batch_size) that were predicted correctly.
+        """
 
-        # Close the session
+        # Top k correct prediction
+        correct = tf.nn.in_top_k(logits, true_labels, 1)
+
+        # Return the number of true entries.
+        return tf.reduce_sum(tf.cast(correct, tf.int32))
+
+    def __generate_batch(self, data, data_labels):
+        """
+        Generate Batches.
+        :param data: the features data.
+        :param data_labels: the labels data.
+        :return: return labels and features.
+        """
+
+        batch_indexes = np.random.random_integers(0, len(data) - 1, self.batch_size)
+        batch_dat = data[batch_indexes]
+        batch_labels = data_labels[batch_indexes]
+
+        return batch_dat, batch_labels
+
+    def __data_preprocessing(self, data):
+        """
+        Preprocesing the MNIST data.
+        :param data: the data.
+        :return: the zero-centered and normalization data.
+        """
+
+        data -= np.mean(data, dtype=np.float64)  # zero-centered
+        data /= np.std(data, dtype=np.float64)  # normalization
+
+        return np.reshape(data, (-1, self.IMAGE_SIZE, self.IMAGE_SIZE, self.NR_CHANEL))
+
+    def __prediction(self, sess, logits, data, images_placeholder, keep_prob1, keep_prob2, keep_prob3):
+        """
+        Predicting the labels of the data.
+        :param sess: The session in which the model has been trained.
+        :param logits: The tenssor that calculate the logits.
+        :param data: The data.
+        :param images_placeholder: The images placeholder.
+        :param keep_prob1: The probability to keep a neurone active.
+        :param keep_prob2: The probability to keep a neurone active.
+        :param keep_prob3: The probability to keep a neurone active.
+        :return: return the labels predicted.
+        """
+
+        steps_per_epoch = data.shape[0] // self.batch_size
+        num_examples = steps_per_epoch * self.batch_size
+        predicted_labels = []
+
+        for step in range(0, num_examples, self.batch_size):
+            data_batch = data[step:step + self.batch_size, :]
+            feed_dict = {images_placeholder: data_batch,
+                         keep_prob1: 1.0,
+                         keep_prob2: 1.0,
+                         keep_prob3: 1.0}
+
+            # Run model on test data
+            softmax = tf.nn.softmax(logits)
+            batch_predicted_labels = sess.run(softmax, feed_dict=feed_dict)
+
+            # Convert softmax predictions to label and append to all results.
+            batch_predicted_labels = np.argmax(batch_predicted_labels, axis=1)
+            predicted_labels.extend(batch_predicted_labels)
+
         sess.close()
-
-        return {
-            'W1_1': W1_1_final,
-            'beta1_1': beta1_1_final,
-            'scale1_1': scale1_1_final,
-            'W1_2': W1_2_final,
-            'beta1_2': beta1_2_final,
-            'scale1_2': scale1_2_final,
-            'W2_1': W2_1_final,
-            'beta2_1': beta2_1_final,
-            'scale2_1': scale2_1_final,
-            'W2_2': W2_2_final,
-            'beta2_2': beta2_2_final,
-            'scale2_2': scale2_2_final,
-            'WFC1': WFC1_final,
-            'betaFC1': betaFC1_final,
-            'scaleFC1': scaleFC1_final,
-            'WFC2': WFC2_final,
-            'betaFC2': betaFC2_final,
-            'scaleFC2': scaleFC2_final,
-            'WFC3': WFC3_final,
-            'bFC3': bFC3_final
-        }
-
-    def predict(self, test_features, nn):
-        """
-        Predict data
-        :param test_features: testing data
-        :param nn: it is a dictionary which contains a Neural Network
-        :return: return the predicted labels and the accuracy
-        """
-
-        # Preprocessing
-        test_features = self.__preprocessing(test_features)
-
-        # Placeholders
-        x = tf.placeholder(tf.float32, shape=[None, self.D])  # the data
-
-        W1_1 = tf.placeholder(tf.float32, shape=self.W1_1_SHAPE)  # the weights
-        beta1_1 = tf.placeholder(tf.float32, shape=self.B1_SHAPE)  # the beta
-        scale1_1 = tf.placeholder(tf.float32, shape=self.B1_SHAPE)  # the scale
-
-        W1_2 = tf.placeholder(tf.float32, shape=self.W1_2_SHAPE)  # the weights
-        beta1_2 = tf.placeholder(tf.float32, shape=self.B1_SHAPE)  # the beta
-        scale1_2 = tf.placeholder(tf.float32, shape=self.B1_SHAPE)  # the scale
-
-        W2_1 = tf.placeholder(tf.float32, shape=self.W2_1_SHAPE)  # the weights
-        beta2_1 = tf.placeholder(tf.float32, shape=self.B2_SHAPE)  # the beta
-        scale2_1 = tf.placeholder(tf.float32, shape=self.B2_SHAPE)  # the scale
-
-        W2_2 = tf.placeholder(tf.float32, shape=self.W2_2_SHAPE)  # the weights
-        beta2_2 = tf.placeholder(tf.float32, shape=self.B2_SHAPE)  # the beta
-        scale2_2 = tf.placeholder(tf.float32, shape=self.B2_SHAPE)  # the scale
-
-        WFC1 = tf.placeholder(tf.float32, shape=self.WFC_1_SHAPE)  # the weights
-        betaFC1 = tf.placeholder(tf.float32, shape=self.BFC1_SHAPE)  # the beta
-        scaleFC1 = tf.placeholder(tf.float32, shape=self.BFC1_SHAPE)  # the scale
-
-        WFC2 = tf.placeholder(tf.float32, shape=self.WFC_2_SHAPE)  # the weights
-        betaFC2 = tf.placeholder(tf.float32, shape=self.BFC2_SHAPE)  # the beta
-        scaleFC2 = tf.placeholder(tf.float32, shape=self.BFC2_SHAPE)  # the scale
-
-        WFC3 = tf.placeholder(tf.float32, shape=self.WFC_3_SHAPE)  # the weights
-        bFC3 = tf.placeholder(tf.float32, shape=self.BFC3_SHAPE)  # the biases
-
-        # Reshape
-        x_image = tf.reshape(x, [-1, 28, 28, 1])
-
-        # First Layer
-        Z1_1 = self.__convolution(x_image, W1_1)
-        batch_mean1_1, batch_var1_1 = tf.nn.moments(Z1_1, [0])
-        BN1 = tf.nn.batch_normalization(Z1_1, batch_mean1_1, batch_var1_1, beta1_1, scale1_1, self.EPSILON)
-        H1 = self.__activation(BN1)  # [50000 x 28 x 28 x 128]
-
-        Z1_2 = self.__convolution(H1, W1_2)
-        batch_mean1_2, batch_var1_2 = tf.nn.moments(Z1_2, [0])
-        BN1_2 = tf.nn.batch_normalization(Z1_2, batch_mean1_2, batch_var1_2, beta1_2, scale1_2, self.EPSILON)
-        H1_2 = self.__activation(BN1_2)  # [50000 x 28 x 28 x 128]
-
-        H_pool1 = self.__pool(H1_2)  # [50000 x 14 x 14 x 128]
-
-        # Second Layer
-        Z2_1 = self.__convolution(H_pool1, W2_1)
-        batch_mean2_1, batch_var2_1 = tf.nn.moments(Z2_1, [0])
-        BN2 = tf.nn.batch_normalization(Z2_1, batch_mean2_1, batch_var2_1, beta2_1, scale2_1, self.EPSILON)
-        H2 = self.__activation(BN2)  # [50000 x 14 x 14 x 256]
-
-        Z2_2 = self.__convolution(H2, W2_2)
-        batch_mean2_2, batch_var2_2 = tf.nn.moments(Z2_2, [0])
-        BN2_2 = tf.nn.batch_normalization(Z2_2, batch_mean2_2, batch_var2_2, beta2_2, scale2_2, self.EPSILON)
-        H2_2 = self.__activation(BN2_2)  # [50000 x 14 x 14 x 256]
-
-        H_pool2 = self.__pool(H2_2)  # [50000 x 7 x 7 x 256]
-
-        # First Full Connected Layer
-        H_pool3_flat = tf.reshape(H_pool2, [-1, self.WFC_1_SHAPE[0]])  # [ 50000 x 12544 ]
-
-        Z_FC1 = tf.matmul(H_pool3_flat, WFC1)
-        batch_mean_fc1, batch_var_fc1 = tf.nn.moments(Z_FC1, [0])
-        BN_FC1 = tf.nn.batch_normalization(Z_FC1, batch_mean_fc1, batch_var_fc1, betaFC1, scaleFC1, self.EPSILON)
-        H_fc1 = self.__activation(BN_FC1)  # [ 50000 x 4096 ]
-
-        # Second Full Connected Layer
-        Z_FC2 = tf.matmul(H_fc1, WFC2)
-        batch_mean_fc2, batch_var_fc2 = tf.nn.moments(Z_FC2, [0])
-        BN_FC2 = tf.nn.batch_normalization(Z_FC2, batch_mean_fc2, batch_var_fc2, betaFC2, scaleFC2, self.EPSILON)
-        H_fc2 = self.__activation(BN_FC2)  # [ 50000 x 2048 ]
-
-        # Third Full Connected Layer
-        H_fc3 = tf.matmul(H_fc2, WFC3) + bFC3  # [ 50000 x 10]
-
-        # Calculate the output
-        y = tf.nn.softmax(H_fc3)  # [ 50000 x 10]
-
-        # Launch the session
-        sess = tf.InteractiveSession()
-
-        # Initialize the placeholder
-        feed_dict = {
-            x: test_features,
-            W1_1: nn['W1_1'],
-            beta1_1: nn['beta1_1'],
-            scale1_1: nn['scale1_1'],
-            W1_2: nn['W1_2'],
-            beta1_2: nn['beta1_2'],
-            scale1_2: nn['scale1_2'],
-            W2_1: nn['W2_1'],
-            beta2_1: nn['beta2_1'],
-            scale2_1: nn['scale2_1'],
-            W2_2: nn['W2_2'],
-            beta2_2: nn['beta2_2'],
-            scale2_2: nn['scale2_2'],
-            WFC1: nn['WFC1'],
-            betaFC1: nn['betaFC1'],
-            scaleFC1: nn['scaleFC1'],
-            WFC2: nn['WFC2'],
-            betaFC2: nn['betaFC2'],
-            scaleFC2: nn['scaleFC2'],
-            WFC3: nn['WFC3'],
-            bFC3: nn['bFC3']
-        }
-
-        # Run model on test data
-        predicted_labels = sess.run(y, feed_dict=feed_dict)
-
-        # Close the session
-        sess.close()
-
-        # Convert SoftMax predictions to label
-        predicted_labels = np.argmax(predicted_labels, axis=1)
 
         return predicted_labels
 
-    def __weight_variable(self, shape):
-        """
-        Initialize the weights variable.
-        :param shape: the shape.
-        :return: return a TensorFlow variable
-        """
 
-        if len(shape) == 4:
-            initial = np.random.randn(shape[0], shape[1], shape[2], shape[3]) * math.sqrt(
-                2.0 / (shape[0] * shape[1] * shape[2] * shape[3]))
-        else:
-            initial = np.random.randn(shape[0], shape[1]) * math.sqrt(2.0 / (shape[0] * shape[1]))
+if __name__ == '__main__':
+    # CONSTANTS
+    TRAIN_DATA = 'MNIST_data/train.csv'
+    TEST_DATA = 'MNIST_data/test.csv'
+    SAVE_DATA = 'RESULT_data/submission_cnn2.csv'
+    OUTPUT_FILE = 'RESULT_data/output_cnn2.txt'
 
-        return tf.Variable(initial, dtype=tf.float32)
+    # Redirect the output to a file
+    sys.stdout = open(OUTPUT_FILE, 'w')
 
-    def __preprocessing(self, X):
-        """
-        Preprocessing the X data by zero-centered and normalized them.
-        :param X: the data.
-        :return: return the new zero-centered and normalized data.
-        """
+    # Read the feature and the labels.
+    features = Utility.read_features_from_csv(TRAIN_DATA)
+    labels = Utility.read_labels_from_csv(TRAIN_DATA)
+    test_features = Utility.read_features_from_csv(TEST_DATA, usecols=None)
 
-        X = X.astype(np.float64)
-        X = X - np.mean(X, dtype=np.float64)  # zero-centered
-        X = X / np.std(X, dtype=np.float64)  # normalization
+    # Separate the training and validation data.
+    NR_VAL = int(features.shape[0] * 0.1)
 
-        return X
+    train_features = features[NR_VAL:]
+    train_labels = labels[NR_VAL:]
+    validation_features = features[0:NR_VAL]
+    validation_features_labels = labels[0:NR_VAL]
 
-    def __bias_variable(self, shape):
-        """
-        Initialize the biases variable.
-        :param shape:t he shape.
-        :return: return a TensorFlow variable
-        """
+    model = DigitsRecognition()
 
-        initial = tf.constant(0.1, shape=shape)
+    predictions = model.prediction(train_features, train_labels, validation_features,
+                                   validation_features_labels, test_features)
 
-        return tf.Variable(initial)
+    # Save the predictions to label
+    Utility.create_file(SAVE_DATA)
 
-    def __convolution(self, x, W):
-        """
-        The convolution layer calculation.
-        :param x: the data.
-        :param W: the weights.
-        :return: return the output of the convolution layer.
-        """
+    Utility.write_to_file(SAVE_DATA, predictions)
 
-        return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
-
-    def __activation(self, x):
-        """
-        The activation function.
-        :param x: the data.
-        :return: return the data after apply the activation.
-        """
-
-        return tf.nn.relu(x)
-
-    def __pool(self, x):
-        """
-        The pool layer.
-        :param x: the data.
-        :return: return the output of the pool layer.
-        """
-
-        return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-
-
-if __name__ == "__main__":
-    # Variable
-    learn_data = 'RESULT_data/mnist'
-    batch_size = 50
-    features = util.read_features_from_csv('MNIST_data/train.csv')
-    labels = util.read_labels_from_csv('MNIST_data/train.csv')
-    test_features = util.read_features_from_csv('MNIST_data/test.csv', usecols=None)
-
-    # Neural Network
-    cnn = ConvolutionNeuralNetwork(784, 10)
-
-    # Train the Neural Network
-    if util.file_exist(learn_data):
-        nn_parameter = util.unpickle(learn_data)
-    else:
-        nn_parameter = cnn.training(features, labels)
-
-        util.pickle_nn(learn_data, nn_parameter)
-
-    util.create_file('RESULT_data/submission_cnn2.csv')
-
-    for i in range(0, test_features.shape[0], batch_size):
-        batch_test_feature = test_features[i:i + batch_size, :]
-
-        predicted_labels = cnn.predict(batch_test_feature, nn_parameter)
-
-        # Save the predictions to label
-        util.append_data_to_file('RESULT_data/submission_cnn2.csv', predicted_labels, i)
+    print('DONE !')
