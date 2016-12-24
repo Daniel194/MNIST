@@ -34,7 +34,7 @@ class DigitsRecognition(object):
         self.W_conv4_shape = [3, 3, 256, 256]
         self.b_conv4_shape = [256]
 
-        self.W_conv5_shape = [3, 3, 512, 512]
+        self.W_conv5_shape = [3, 3, 256, 512]
         self.b_conv5_shape = [512]
 
         self.W_conv6_shape = [3, 3, 512, 512]
@@ -249,7 +249,7 @@ class DigitsRecognition(object):
 
         # Second Pool Layer
         with tf.name_scope('pool3'):
-            pool3 = tf.nn.max_pool(hidden6, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+            pool3 = tf.nn.max_pool(hidden6, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
 
         # First Dropout
         with tf.name_scope('dropout3'):
