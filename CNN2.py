@@ -1,5 +1,5 @@
 """
-ACCURACY : ???
+ACCURACY : 99.229%
 """
 
 import tensorflow as tf
