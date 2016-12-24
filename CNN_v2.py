@@ -356,19 +356,12 @@ if __name__ == '__main__':
     test_features = Utility.read_features_from_csv(TEST_DATA, usecols=None)
 
     # Separate the training and validation data.
-    # NR_VAL = int(features.shape[0] * 0.1)
-    NR_VAL = 0
+    NR_VAL = int(features.shape[0] * 0.1)
 
-    if NR_VAL == 0:
-        train_features = features
-        train_labels = labels
-        validation_features = features[0:100]
-        validation_features_labels = labels[0:100]
-    else:
-        train_features = features[NR_VAL:]
-        train_labels = labels[NR_VAL:]
-        validation_features = features[0:NR_VAL]
-        validation_features_labels = labels[0:NR_VAL]
+    train_features = features[NR_VAL:]
+    train_labels = labels[NR_VAL:]
+    validation_features = features[0:NR_VAL]
+    validation_features_labels = labels[0:NR_VAL]
 
     model = DigitsRecognition()
 
