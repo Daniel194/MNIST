@@ -15,6 +15,8 @@ class DigitsRecognition(object):
     def __init__(self):
 
         self.learning_rate = 1e-4  # Initial learning rate.
+        self.epsilon = 1e-3  # Hyperparamter for Batch Normalization.
+
         self.max_steps = 20000  # Number of steps to run trainer.
         self.batch_size = 100  # Batch size.  Must divide evenly into the dataset sizes.
 
@@ -183,8 +185,13 @@ class DigitsRecognition(object):
 
             weights = tf.Variable(tf.truncated_normal(self.W_conv1_shape, stddev=1.0 / math.sqrt(float(nr_units))),
                                   name='weights')
-            biases = tf.Variable(tf.zeros(self.b_conv1_shape), name='biases')
-            hidden1 = tf.nn.relu(tf.nn.conv2d(images, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
+            scale = tf.Variable(tf.ones(self.b_conv1_shape), name='scale')
+            beta = tf.Variable(tf.zeros(self.b_conv1_shape), name='beta')
+
+            z = tf.nn.conv2d(images, weights, strides=[1, 1, 1, 1], padding='SAME')
+            batch_mean, batch_var = tf.nn.moments(z, [0])
+            bn = tf.nn.batch_normalization(z, batch_mean, batch_var, beta, scale, self.epsilon)
+            hidden1 = tf.nn.relu(bn)
 
         # Second Convolutional Layer
         with tf.name_scope('hidden2'):
@@ -192,8 +199,13 @@ class DigitsRecognition(object):
 
             weights = tf.Variable(tf.truncated_normal(self.W_conv2_shape, stddev=1.0 / math.sqrt(float(nr_units))),
                                   name='weights')
-            biases = tf.Variable(tf.zeros(self.b_conv2_shape), name='biases')
-            hidden2 = tf.nn.relu(tf.nn.conv2d(hidden1, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
+            scale = tf.Variable(tf.ones(self.b_conv2_shape), name='scale')
+            beta = tf.Variable(tf.zeros(self.b_conv2_shape), name='beta')
+
+            z = tf.nn.conv2d(hidden1, weights, strides=[1, 1, 1, 1], padding='SAME')
+            batch_mean, batch_var = tf.nn.moments(z, [0])
+            bn = tf.nn.batch_normalization(z, batch_mean, batch_var, beta, scale, self.epsilon)
+            hidden2 = tf.nn.relu(bn)
 
         # First Pool Layer
         with tf.name_scope('pool1'):
@@ -205,8 +217,13 @@ class DigitsRecognition(object):
 
             weights = tf.Variable(tf.truncated_normal(self.W_conv3_shape, stddev=1.0 / math.sqrt(float(nr_units))),
                                   name='weights')
-            biases = tf.Variable(tf.zeros(self.b_conv3_shape), name='biases')
-            hidden3 = tf.nn.relu(tf.nn.conv2d(pool1, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
+            scale = tf.Variable(tf.ones(self.b_conv3_shape), name='scale')
+            beta = tf.Variable(tf.zeros(self.b_conv3_shape), name='beta')
+
+            z = tf.nn.conv2d(pool1, weights, strides=[1, 1, 1, 1], padding='SAME')
+            batch_mean, batch_var = tf.nn.moments(z, [0])
+            bn = tf.nn.batch_normalization(z, batch_mean, batch_var, beta, scale, self.epsilon)
+            hidden3 = tf.nn.relu(bn)
 
         # Fourth Convolutional Layer
         with tf.name_scope('hidden4'):
@@ -214,8 +231,13 @@ class DigitsRecognition(object):
 
             weights = tf.Variable(tf.truncated_normal(self.W_conv4_shape, stddev=1.0 / math.sqrt(float(nr_units))),
                                   name='weights')
-            biases = tf.Variable(tf.zeros(self.b_conv4_shape), name='biases')
-            hidden4 = tf.nn.relu(tf.nn.conv2d(hidden3, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
+            scale = tf.Variable(tf.ones(self.b_conv4_shape), name='scale')
+            beta = tf.Variable(tf.zeros(self.b_conv4_shape), name='beta')
+
+            z = tf.nn.conv2d(hidden3, weights, strides=[1, 1, 1, 1], padding='SAME')
+            batch_mean, batch_var = tf.nn.moments(z, [0])
+            bn = tf.nn.batch_normalization(z, batch_mean, batch_var, beta, scale, self.epsilon)
+            hidden4 = tf.nn.relu(bn)
 
         # Second Pool Layer
         with tf.name_scope('pool2'):
@@ -231,21 +253,31 @@ class DigitsRecognition(object):
 
             weights = tf.Variable(tf.truncated_normal(self.W_conv5_shape, stddev=1.0 / math.sqrt(float(nr_units))),
                                   name='weights')
-            biases = tf.Variable(tf.zeros(self.b_conv5_shape), name='biases')
-            hidden5 = tf.nn.relu(tf.nn.conv2d(dropout1, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
+            scale = tf.Variable(tf.ones(self.b_conv5_shape), name='scale')
+            beta = tf.Variable(tf.zeros(self.b_conv5_shape), name='beta')
+
+            z = tf.nn.conv2d(dropout1, weights, strides=[1, 1, 1, 1], padding='SAME')
+            batch_mean, batch_var = tf.nn.moments(z, [0])
+            bn = tf.nn.batch_normalization(z, batch_mean, batch_var, beta, scale, self.epsilon)
+            hidden5 = tf.nn.relu(bn)
 
         # First Dropout
         with tf.name_scope('dropout2'):
             dropout2 = tf.nn.dropout(hidden5, keep_prob2)
 
-        # Fifth Convolutional Layer
+        # Sixth Convolutional Layer
         with tf.name_scope('hidden6'):
             nr_units = functools.reduce(lambda x, y: x * y, self.W_conv6_shape)
 
             weights = tf.Variable(tf.truncated_normal(self.W_conv6_shape, stddev=1.0 / math.sqrt(float(nr_units))),
                                   name='weights')
-            biases = tf.Variable(tf.zeros(self.b_conv6_shape), name='biases')
-            hidden6 = tf.nn.relu(tf.nn.conv2d(dropout2, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
+            scale = tf.Variable(tf.ones(self.b_conv6_shape), name='scale')
+            beta = tf.Variable(tf.zeros(self.b_conv6_shape), name='beta')
+
+            z = tf.nn.conv2d(dropout2, weights, strides=[1, 1, 1, 1], padding='SAME')
+            batch_mean, batch_var = tf.nn.moments(z, [0])
+            bn = tf.nn.batch_normalization(z, batch_mean, batch_var, beta, scale, self.epsilon)
+            hidden6 = tf.nn.relu(bn)
 
         # Second Pool Layer
         with tf.name_scope('pool3'):
@@ -262,8 +294,13 @@ class DigitsRecognition(object):
 
             weights = tf.Variable(tf.truncated_normal(self.W_fc1_shape, stddev=1.0 / math.sqrt(float(nr_units))),
                                   name='weights')
-            biases = tf.Variable(tf.zeros(self.b_fc1_shape), name='biases')
-            fc1 = tf.nn.relu(tf.matmul(dropout3_flat, weights) + biases)
+            scale = tf.Variable(tf.ones(self.b_fc1_shape), name='scale')
+            beta = tf.Variable(tf.zeros(self.b_fc1_shape), name='beta')
+
+            z = tf.matmul(dropout3_flat, weights)
+            batch_mean, batch_var = tf.nn.moments(z, [0])
+            bn = tf.nn.batch_normalization(z, batch_mean, batch_var, beta, scale, self.epsilon)
+            fc1 = tf.nn.relu(bn)
 
         # Second Fully Connected Layer
         with tf.name_scope('fc2'):
