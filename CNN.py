@@ -110,11 +110,40 @@ class DigitsRecognition(object):
         return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
+def read_features_from_csv(filename, usecols=range(1, 785)):
+    """
+    Read feature.
+    :param filename: the fil name.
+    :param usecols: the columns.
+    :return: return the features.
+    """
+
+    features = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=usecols, dtype=np.float32)
+    features = np.divide(features, 255.0)  # scale 0..255 to 0..1
+
+    return features
+
+
+def read_labels_from_csv(filename):
+    """
+    Read labels and convert them to 1-hot vectors.
+    :param filename: the file name.
+    :return: return the labels form the filename.
+    """
+
+    labels_orig = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=0, dtype=np.int)
+    labels = np.zeros([len(labels_orig), 10])
+    labels[np.arange(len(labels_orig)), labels_orig] = 1
+    labels = labels.astype(np.float32)
+
+    return labels
+
+
 if __name__ == "__main__":
     # Read the feature and the labels.
-    features = util.read_features_from_csv('MNIST_data/train.csv')
-    labels = util.read_labels_from_csv('MNIST_data/train.csv')
-    test_features = util.read_features_from_csv('MNIST_data/test.csv', usecols=None)
+    features = read_features_from_csv('MNIST_data/train.csv')
+    labels = read_labels_from_csv('MNIST_data/train.csv')
+    test_features = read_features_from_csv('MNIST_data/test.csv', usecols=None)
 
     model = DigitsRecognition()
 
