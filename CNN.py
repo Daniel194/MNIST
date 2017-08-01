@@ -238,7 +238,8 @@ class DigitsRecognition(object):
 
         true_labels = tf.to_int64(true_labels)
 
-        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(softmax_logits, true_labels, name='xentropy')
+        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=softmax_logits, labels=true_labels,
+                                                                       name='xentropy')
 
         loss = tf.reduce_mean(cross_entropy, name='xentropy_mean')
 
