@@ -1,16 +1,14 @@
-import numpy as np
 import pandas as pd
 import matplotlib
 import keras
-import matplotlib.pyplot as plt
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras.utils import np_utils
-from keras import backend as K
+from keras import backend as k
 
-K.set_image_dim_ordering('th')
+k.set_image_dim_ordering('th')
 matplotlib.use('Agg')
 
 epochs = 25
@@ -25,11 +23,11 @@ img_cols = 28
 data = pd.read_csv("input/train.csv", nrows=42000)
 (train, test) = (data[:train_size], data[42000 - test_size:42000])
 
-x_train = (train.ix[:, 1:].values).astype('float32')
+x_train = train.ix[:, 1:].values.astype('float32')
 y_train = train.ix[:, 0].values.astype('int32')
 
-x_test = (test.ix[:, 1:].values).astype('float32')
-y_test = (test.ix[:, 0].values).astype('int32')
+x_test = test.ix[:, 1:].values.astype('float32')
+y_test = test.ix[:, 0].values.astype('int32')
 
 x_test_raw = x_test
 
@@ -82,35 +80,7 @@ print('Test accuracy:', score[1])
 
 print("Baseline Error: %.2f%%" % (100 - score[1] * 100))
 
-pred = model.predict_classes(x_test, verbose=0)
-
-
-def plot_failures(pred, x_test, y_test_nv, file):
-    cmp = np.column_stack((pred, y_test_nv))
-    df = pd.DataFrame(cmp)
-    df['match'] = np.where(df[0] == df[1], 1, 0)
-    fail = df[df['match'] == 0].index.tolist()
-    x_fail = x_test[np.array(fail)]
-
-    if (len(x_fail) > 100):
-        x_fail = x_fail[:100]
-
-    num_images, img = x_fail.shape
-    x_fail = x_fail.reshape(num_images, 28, 28)
-    x_fail = np.concatenate((x_fail, np.zeros((100 - num_images, 28, 28))), axis=0)
-
-    fig = plt.figure()
-    for x in range(1, 10):
-        for y in range(1, 10):
-            ax = fig.add_subplot(10, 10, 10 * y + x)
-            ax.matshow(x_fail[10 * y + x], cmap=matplotlib.cm.binary)
-            plt.xticks(np.array([]))
-            plt.yticks(np.array([]))
-
-    plt.savefig(file + '.png')
-
-
-plot_failures(pred, x_test_raw, y_test_nv, "failures")
+model.predict_classes(x_test, verbose=0)
 
 comp = pd.read_csv("input/test.csv")
 x_comp = comp.iloc[:, :].values
