@@ -26,16 +26,17 @@ class MNIST(object):
 
         self.model = Sequential()
 
-    def load_model(self):
-        self.model = load_model('checkpoint/model.h5')
-
     def predict(self, images, load_mode=False):
         if load_mode:
-            self.load_model()
+            self.model = load_model('checkpoint/model.h5')
 
         return self.model.predict_classes(images, verbose=0)
 
     def train(self):
+        self.__read_data()
+
+        self.__build()
+
         self.model.compile(loss=keras.losses.categorical_crossentropy, optimizer=keras.optimizers.Adadelta(),
                            metrics=['accuracy'])
 
@@ -51,7 +52,7 @@ class MNIST(object):
 
         self.model.save('checkpoint/model.h5')
 
-    def read_data(self):
+    def __read_data(self):
         data = pd.read_csv("input/train.csv", nrows=42000)
         (train, test) = (data[:self.train_size], data[42000 - self.test_size:42000])
 
@@ -77,7 +78,7 @@ class MNIST(object):
         self.y_train = y_train
         self.y_test = y_test
 
-    def build(self):
+    def __build(self):
         self.model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same', input_shape=self.input_shape))
         self.model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
 
@@ -115,7 +116,9 @@ if __name__ == '__main__':
 
     model = MNIST()
 
+    model.train()
+
     pred = model.predict(x_comp)
 
     submissions = pd.DataFrame({"ImageId": list(range(1, len(pred) + 1)), "Label": pred})
-    submissions.to_csv("output/submission1.csv", index=False, header=True)
+    submissions.to_csv("output/submission2.csv", index=False, header=True)
