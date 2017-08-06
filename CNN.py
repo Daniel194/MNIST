@@ -121,4 +121,4 @@ if __name__ == '__main__':
     pred = model.predict(x_comp)
 
     submissions = pd.DataFrame({"ImageId": list(range(1, len(pred) + 1)), "Label": pred})
-    submissions.to_csv("output/submission2.csv", index=False, header=True)
+    submissions.to_csv("output/submission.csv", index=False, header=True)
