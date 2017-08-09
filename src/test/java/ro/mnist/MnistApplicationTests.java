@@ -1,4 +1,4 @@
-package ro.mnist.mnist;
+package ro.mnist;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
