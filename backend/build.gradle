@@ -14,7 +14,12 @@ apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'org.springframework.boot'
 
-version = '0.0.1-SNAPSHOT'
+
+jar {
+	baseName = 'backend'
+	version = '0.0.1-SNAPSHOT'
+}
+
 sourceCompatibility = 1.8
 
 repositories {
@@ -24,6 +29,9 @@ repositories {
 
 dependencies {
 	compile('org.springframework.boot:spring-boot-starter-web')
+	compile('org.springframework.boot:spring-boot-starter-data-jpa')
+	compile('org.springframework.boot:spring-boot-starter-data-rest')
+	compile("com.h2database:h2")
 	runtime('org.springframework.boot:spring-boot-devtools')
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 }
