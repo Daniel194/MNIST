@@ -76,4 +76,8 @@ export class CanvasComponent implements AfterViewInit {
         }
     }
 
+    public clear(event: MouseEvent) {
+        this.cx.clearRect(0, 0, this.width, this.height);
+    }
+
 }

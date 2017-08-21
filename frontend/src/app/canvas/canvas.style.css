@@ -1,3 +1,11 @@
 canvas {
     border: 1px solid #000;
 }
+
+#buttons {
+    padding-left: 100px;
+}
+
+#buttons button {
+    margin-right: 10px;
+}
