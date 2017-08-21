@@ -10,8 +10,8 @@ import 'rxjs/add/operator/switchMap';
 
 @Component({
     selector: 'app-canvas',
-    template: '<canvas #canvas></canvas>',
-    styles: ['canvas { border: 1px solid #000; }']
+    templateUrl: './canvas.template.html',
+    styleUrls: ['./canvas.style.css']
 })
 export class CanvasComponent implements AfterViewInit {
 
