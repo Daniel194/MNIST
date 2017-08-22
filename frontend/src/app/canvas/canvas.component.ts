@@ -80,4 +80,11 @@ export class CanvasComponent implements AfterViewInit {
         this.cx.clearRect(0, 0, this.width, this.height);
     }
 
+    public predict(event: MouseEvent) {
+        let image = new Image();
+        image.id = "pic";
+        image.src = this.canvas.nativeElement.toDataURL();
+        document.getElementById('canvas-image').appendChild(image);
+    }
+
 }
