@@ -7,6 +7,7 @@ import 'rxjs/add/observable/fromEvent';
 import 'rxjs/add/operator/takeUntil';
 import 'rxjs/add/operator/pairwise';
 import 'rxjs/add/operator/switchMap';
+import {CanvasService} from './canvas.service';
 
 @Component({
     selector: 'app-canvas',
@@ -23,6 +24,9 @@ export class CanvasComponent implements AfterViewInit {
     @Input() public pictureSrc = '';
 
     private cx: CanvasRenderingContext2D;
+
+    constructor(private canvasService: CanvasService) {
+    }
 
     public ngAfterViewInit() {
         const canvasEl: HTMLCanvasElement = this.canvas.nativeElement;
@@ -85,6 +89,9 @@ export class CanvasComponent implements AfterViewInit {
 
     public predict(event: MouseEvent) {
         this.pictureSrc = this.canvas.nativeElement.toDataURL();
+
+        this.canvasService.makePrediction(this.canvas.nativeElement)
+            .then();
     }
 
 }
