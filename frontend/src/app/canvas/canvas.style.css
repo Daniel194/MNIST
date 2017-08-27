@@ -2,6 +2,18 @@ canvas {
     border: 1px solid #000;
 }
 
+.col-md-4 {
+    padding-left: 50px;
+    padding-right: 50px;
+    padding-top: 30px;
+}
+
+#pic {
+    width: 400px;
+    height: 400px;
+    border: 1px solid #000;
+}
+
 #buttons {
     padding-left: 100px;
 }

@@ -1,6 +1,17 @@
-<canvas #canvas></canvas>
-<div id="buttons">
-    <button (click)="clear($event)">Clear</button>
-    <button (click)="predict($event)">Predic</button>
+<div class="row">
+    <div class="col-md-4">
+        <h2>Hello, please draw a number !</h2>
+        <canvas #canvas></canvas>
+        <div id="buttons">
+            <button (click)="clear($event)">Clear</button>
+            <button (click)="predict($event)">Predic</button>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <h2>The number that you draw</h2>
+        <img id="pic" [src]="pictureSrc" alt="No Picture"/>
+    </div>
+    <div class="col-md-4">
+        <h2>Computer prediction</h2>
+    </div>
 </div>
-<div id="canvas-image"></div>

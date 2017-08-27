@@ -20,6 +20,8 @@ export class CanvasComponent implements AfterViewInit {
     @Input() public width = 400;
     @Input() public height = 400;
 
+    @Input() public pictureSrc = '';
+
     private cx: CanvasRenderingContext2D;
 
     public ngAfterViewInit() {
@@ -34,6 +36,7 @@ export class CanvasComponent implements AfterViewInit {
         this.cx.strokeStyle = '#000';
 
         this.captureEvents(canvasEl);
+        this.pictureSrc = this.canvas.nativeElement.toDataURL();
     }
 
     private captureEvents(canvasEl: HTMLCanvasElement) {
@@ -81,10 +84,7 @@ export class CanvasComponent implements AfterViewInit {
     }
 
     public predict(event: MouseEvent) {
-        let image = new Image();
-        image.id = "pic";
-        image.src = this.canvas.nativeElement.toDataURL();
-        document.getElementById('canvas-image').appendChild(image);
+        this.pictureSrc = this.canvas.nativeElement.toDataURL();
     }
 
 }
