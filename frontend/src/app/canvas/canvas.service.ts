@@ -9,7 +9,7 @@ import {Prediction} from './Prediction';
 
 @Injectable()
 export class CanvasService {
-    private canvasPrediction = 'http://localhost:8080/api/prediction';
+    private canvasPredictionUrl = 'http://localhost:8080/api/prediction';
     private headers = new Headers({'Content-Type': 'application/json'});
     private options = new RequestOptions({headers: this.headers});
 
@@ -17,8 +17,8 @@ export class CanvasService {
     }
 
 
-    public makePrediction(canvas: HTMLCanvasElement): Promise<Prediction[]> {
-        return this.http.post(this.canvasPrediction, {}, this.options).toPromise()
+    public makePrediction(image: ImageData): Promise<Prediction[]> {
+        return this.http.post(this.canvasPredictionUrl, image, this.options).toPromise()
             .then(this.extractData)
             .catch(this.handleError);
     }

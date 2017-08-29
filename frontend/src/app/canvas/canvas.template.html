@@ -13,5 +13,19 @@
     </div>
     <div class="col-md-4">
         <h2>Computer prediction</h2>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Number</th>
+                <th>Accuracy</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr *ngFor="let prediction of predictions">
+                <td>{{prediction.nr}}</td>
+                <td>{{prediction.accuracy}}</td>
+            </tr>
+            </tbody>
+        </table>
     </div>
 </div>

@@ -8,11 +8,13 @@ import 'rxjs/add/operator/takeUntil';
 import 'rxjs/add/operator/pairwise';
 import 'rxjs/add/operator/switchMap';
 import {CanvasService} from './canvas.service';
+import {Prediction} from './Prediction';
 
 @Component({
     selector: 'app-canvas',
     templateUrl: './canvas.template.html',
-    styleUrls: ['./canvas.style.css']
+    styleUrls: ['./canvas.style.css'],
+    providers: [CanvasService]
 })
 export class CanvasComponent implements AfterViewInit {
 
@@ -23,9 +25,12 @@ export class CanvasComponent implements AfterViewInit {
 
     @Input() public pictureSrc = '';
 
+    public predictions: Prediction[] = [];
+
     private cx: CanvasRenderingContext2D;
 
     constructor(private canvasService: CanvasService) {
+        this.initializePrediction();
     }
 
     public ngAfterViewInit() {
@@ -41,6 +46,20 @@ export class CanvasComponent implements AfterViewInit {
 
         this.captureEvents(canvasEl);
         this.pictureSrc = this.canvas.nativeElement.toDataURL();
+    }
+
+    public clear(event: MouseEvent) {
+        this.cx.clearRect(0, 0, this.width, this.height);
+    }
+
+    public predict(event: MouseEvent) {
+        this.pictureSrc = this.canvas.nativeElement.toDataURL();
+        this.canvasService.makePrediction(this.cx.getImageData(0, 0, this.width, this.height))
+            .then(function (value) {
+                this.predictions = value;
+            }, function (reason) {
+                this.initializePrediction();
+            });
     }
 
     private captureEvents(canvasEl: HTMLCanvasElement) {
@@ -83,15 +102,9 @@ export class CanvasComponent implements AfterViewInit {
         }
     }
 
-    public clear(event: MouseEvent) {
-        this.cx.clearRect(0, 0, this.width, this.height);
+    private initializePrediction() {
+        for (let i = 0; i < 10; i++) {
+            this.predictions.push({nr: i, accuracy: 0.0});
+        }
     }
-
-    public predict(event: MouseEvent) {
-        this.pictureSrc = this.canvas.nativeElement.toDataURL();
-
-        this.canvasService.makePrediction(this.canvas.nativeElement)
-            .then();
-    }
-
 }
