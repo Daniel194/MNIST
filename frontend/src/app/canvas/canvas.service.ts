@@ -17,8 +17,8 @@ export class CanvasService {
     }
 
 
-    public makePrediction(image: ImageData): Promise<Prediction[]> {
-        return this.http.post(this.canvasPredictionUrl, image, this.options).toPromise()
+    public makePrediction(canvas: HTMLCanvasElement): Promise<Prediction[]> {
+        return this.http.post(this.canvasPredictionUrl, canvas.toDataURL('image/png'), this.options).toPromise()
             .then(this.extractData)
             .catch(this.handleError);
     }

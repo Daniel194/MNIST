@@ -54,7 +54,7 @@ export class CanvasComponent implements AfterViewInit {
 
     public predict(event: MouseEvent) {
         this.pictureSrc = this.canvas.nativeElement.toDataURL();
-        this.canvasService.makePrediction(this.cx.getImageData(0, 0, this.width, this.height))
+        this.canvasService.makePrediction(this.canvas.nativeElement)
             .then(function (value) {
                 this.predictions = value;
             }, function (reason) {
