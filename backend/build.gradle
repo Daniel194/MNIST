@@ -14,13 +14,6 @@ apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'org.springframework.boot'
 
-task copySqlImport(type: Copy) {
-    from 'src/main/resources'
-    into 'build/classes'
-}
-
-build.dependsOn(copySqlImport)
-
 jar {
     baseName = 'backend'
     version = '0.0.1-SNAPSHOT'
@@ -31,7 +24,6 @@ sourceCompatibility = 1.8
 repositories {
     mavenCentral()
 }
-
 
 dependencies {
     compile('org.springframework.boot:spring-boot-starter-web')
