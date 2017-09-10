@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib
 import keras
+import sys
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
@@ -110,15 +111,19 @@ class MNIST(object):
 
 
 if __name__ == '__main__':
-    comp = pd.read_csv("input/test.csv")
-    x_comp = comp.iloc[:, :].values
-    x_comp = x_comp.reshape(x_comp.shape[0], 1, 28, 28)
 
     model = MNIST()
 
-    model.train()
+    if sys.argv[1] == 'train':
+        model.train()
 
-    pred = model.predict(x_comp)
+    if sys.argv[1] == 'predict':
+        comp = pd.read_csv("input/test.csv")
+        x_comp = comp.iloc[:, :].values.astype('float32')
+        x_comp = x_comp.reshape(x_comp.shape[0], 1, 28, 28)
+        x_comp /= 255
 
-    submissions = pd.DataFrame({"ImageId": list(range(1, len(pred) + 1)), "Label": pred})
-    submissions.to_csv("output/submission.csv", index=False, header=True)
+        pred = model.predict(x_comp, load_mode=True)
+
+        submissions = pd.DataFrame({"ImageId": list(range(1, len(pred) + 1)), "Label": pred})
+        submissions.to_csv("output/submission_test.csv", index=False, header=True)
