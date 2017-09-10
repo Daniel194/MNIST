@@ -15,6 +15,7 @@ from keras.models import load_model
 k.set_image_dim_ordering('th')
 matplotlib.use('Agg')
 
+FULL_PATH = '/home/ldaniel/Desktop/MNIST/CNN/'
 
 class MNIST(object):
     def __init__(self):
@@ -31,12 +32,12 @@ class MNIST(object):
 
     def predict_classes(self, images, load_mode=False):
         if load_mode:
-            self.model = load_model('checkpoint/model.h5')
+            self.model = load_model(FULL_PATH + 'checkpoint/model.h5')
 
         return self.model.predict_classes(images, verbose=0)
 
     def predict(self, image):
-        self.model = load_model('checkpoint/model.h5')
+        self.model = load_model(FULL_PATH + 'checkpoint/model.h5')
         return self.model.predict(image, verbose=0)
 
     def train(self):
@@ -57,10 +58,10 @@ class MNIST(object):
 
         print("Baseline Error: %.2f%%" % (100 - score[1] * 100))
 
-        self.model.save('checkpoint/model.h5')
+        self.model.save(FULL_PATH + 'checkpoint/model.h5')
 
     def __read_data(self):
-        data = pd.read_csv("input/train.csv", nrows=42000)
+        data = pd.read_csv(FULL_PATH + "input/train.csv", nrows=42000)
         (train, test) = (data[:self.train_size], data[42000 - self.test_size:42000])
 
         x_train = train.ix[:, 1:].values.astype('float32')
@@ -123,7 +124,7 @@ if __name__ == '__main__':
     if sys.argv[1] == 'train':
         model.train()
     elif sys.argv[1] == 'predict':
-        comp = pd.read_csv("input/test.csv")
+        comp = pd.read_csv(FULL_PATH + "input/test.csv")
         x_comp = comp.iloc[:, :].values.astype('float32')
         x_comp = x_comp.reshape(x_comp.shape[0], 1, 28, 28)
         x_comp /= 255
@@ -131,7 +132,7 @@ if __name__ == '__main__':
         pred = model.predict_classes(x_comp, load_mode=True)
 
         submissions = pd.DataFrame({"ImageId": list(range(1, len(pred) + 1)), "Label": pred})
-        submissions.to_csv("output/submission.csv", index=False, header=True)
+        submissions.to_csv(FULL_PATH + "output/submission.csv", index=False, header=True)
     elif sys.argv[1] == 'image_prediction':
         img = img = Image.open('/home/ldaniel/Desktop/MNIST/backend/src/main/resources/image/image.png')
         img.thumbnail((28, 28), Image.ANTIALIAS)
@@ -142,4 +143,4 @@ if __name__ == '__main__':
         pred = model.predict(pix.reshape(1, 1, 28, 28))
 
         submissions = pd.DataFrame({"Nr": list(range(0, len(pred[0, :]))), "Acc": pred[0, :]})
-        submissions.to_csv("output/image_prediction.csv", index=False, header=True)
+        submissions.to_csv(FULL_PATH + "output/image_prediction.csv", index=False, header=True)
