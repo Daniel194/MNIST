@@ -21,7 +21,7 @@
             </tr>
             </thead>
             <tbody>
-            <tr *ngFor="let prediction of predictions">
+            <tr *ngFor="let prediction of predictions" [class]="getClass(prediction.accuracy)">
                 <td>{{prediction.nr}}</td>
                 <td>{{prediction.accuracy}}</td>
             </tr>

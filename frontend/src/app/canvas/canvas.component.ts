@@ -62,6 +62,12 @@ export class CanvasComponent implements AfterViewInit {
             });
     }
 
+    public getClass(acc : number) {
+        if(acc == 1.0){
+            return 'bg-primary';
+        }
+    }
+
     private captureEvents(canvasEl: HTMLCanvasElement) {
         Observable
             .fromEvent(canvasEl, 'mousedown')
