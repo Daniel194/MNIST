@@ -20,7 +20,7 @@ class Prediction(Resource):
 
         pred = model.predict(pix.reshape(1, 1, 28, 28))
 
-        return {'prediction': pred.tolist()}
+        return pred[0, :].tolist()
 
 
 api.add_resource(Prediction, '/prediction')
