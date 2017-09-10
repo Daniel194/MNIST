@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
 import matplotlib
 import keras
 import sys
@@ -30,11 +29,15 @@ class MNIST(object):
 
         self.model = Sequential()
 
-    def predict(self, images, load_mode=False):
+    def predict_classes(self, images, load_mode=False):
         if load_mode:
             self.model = load_model('checkpoint/model.h5')
 
         return self.model.predict_classes(images, verbose=0)
+
+    def predict(self, image):
+        self.model = load_model('checkpoint/model.h5')
+        return self.model.predict(image, verbose=0)
 
     def train(self):
         self.__read_data()
@@ -125,22 +128,18 @@ if __name__ == '__main__':
         x_comp = x_comp.reshape(x_comp.shape[0], 1, 28, 28)
         x_comp /= 255
 
-        pred = model.predict(x_comp, load_mode=True)
+        pred = model.predict_classes(x_comp, load_mode=True)
 
         submissions = pd.DataFrame({"ImageId": list(range(1, len(pred) + 1)), "Label": pred})
         submissions.to_csv("output/submission.csv", index=False, header=True)
-    elif sys.argv[1] == 'predict_image':
+    elif sys.argv[1] == 'image_prediction':
         img = img = Image.open('/home/ldaniel/Desktop/MNIST/backend/src/main/resources/image/image.png')
         img.thumbnail((28, 28), Image.ANTIALIAS)
 
         pix = np.array(img)
         pix = pix[:, :, 3]
 
-        print(pix)
-        print(pix.shape)
-        plt.imshow(pix, cmap='gray')
-        plt.show()
+        pred = model.predict(pix.reshape(1, 1, 28, 28))
 
-        pred = model.predict(pix.reshape(1, 1, 28, 28), load_mode=True)
-
-        print("The number is :", pred)
+        submissions = pd.DataFrame({"Nr": list(range(0, len(pred[0, :]))), "Acc": pred[0, :]})
+        submissions.to_csv("output/image_prediction.csv", index=False, header=True)
