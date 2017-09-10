@@ -1,4 +1,7 @@
 import pandas as pd
+import numpy as np
+from PIL import Image
+import matplotlib.pyplot as plt
 import matplotlib
 import keras
 import sys
@@ -116,8 +119,7 @@ if __name__ == '__main__':
 
     if sys.argv[1] == 'train':
         model.train()
-
-    if sys.argv[1] == 'predict':
+    elif sys.argv[1] == 'predict':
         comp = pd.read_csv("input/test.csv")
         x_comp = comp.iloc[:, :].values.astype('float32')
         x_comp = x_comp.reshape(x_comp.shape[0], 1, 28, 28)
@@ -126,4 +128,19 @@ if __name__ == '__main__':
         pred = model.predict(x_comp, load_mode=True)
 
         submissions = pd.DataFrame({"ImageId": list(range(1, len(pred) + 1)), "Label": pred})
-        submissions.to_csv("output/submission_test.csv", index=False, header=True)
+        submissions.to_csv("output/submission.csv", index=False, header=True)
+    elif sys.argv[1] == 'predict_image':
+        img = img = Image.open('/home/ldaniel/Desktop/MNIST/backend/src/main/resources/image/image.png')
+        img.thumbnail((28, 28), Image.ANTIALIAS)
+
+        pix = np.array(img)
+        pix = pix[:, :, 3]
+
+        print(pix)
+        print(pix.shape)
+        plt.imshow(pix, cmap='gray')
+        plt.show()
+
+        pred = model.predict(pix.reshape(1, 1, 28, 28), load_mode=True)
+
+        print("The number is :", pred)
