@@ -5,6 +5,7 @@ import 'rxjs/add/operator/map';
 import 'rxjs/add/operator/toPromise';
 
 import {Prediction} from './Prediction';
+import {Observable} from 'rxjs/Rx';
 
 
 @Injectable()
@@ -16,20 +17,10 @@ export class CanvasService {
     constructor(private http: Http) {
     }
 
-
-    public makePrediction(canvas: HTMLCanvasElement): Promise<Prediction[]> {
-        return this.http.post(this.canvasPredictionUrl, canvas.toDataURL('image/png'), this.options).toPromise()
-            .then(this.extractData)
-            .catch(this.handleError);
-    }
-
-    private handleError(error: any): Promise<any> {
-        return Promise.reject(error.message || error);
-    }
-
-    private extractData(res: Response) {
-        let body = res.json();
-        return body.data || {};
+    public makePrediction(canvas: HTMLCanvasElement): Observable<Prediction[]> {
+        return this.http.post(this.canvasPredictionUrl, canvas.toDataURL('image/png'), this.options)
+            .map((res: Response) => res.json())
+            .catch((error: any) => Observable.throw(error.json().error || 'Server error'));
     }
 
 }
