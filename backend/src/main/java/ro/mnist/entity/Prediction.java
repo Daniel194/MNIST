@@ -3,7 +3,12 @@ package ro.mnist.entity;
 public class Prediction {
 
     private Integer nr;
-    private Float accuracy;
+    private Double accuracy;
+
+    public Prediction(Integer nr, Double accuracy) {
+        this.nr = nr;
+        this.accuracy = accuracy;
+    }
 
     public Integer getNr() {
         return nr;
@@ -13,11 +18,11 @@ public class Prediction {
         this.nr = nr;
     }
 
-    public Float getAccuracy() {
+    public Double getAccuracy() {
         return accuracy;
     }
 
-    public void setAccuracy(Float accuracy) {
+    public void setAccuracy(Double accuracy) {
         this.accuracy = accuracy;
     }
 }
