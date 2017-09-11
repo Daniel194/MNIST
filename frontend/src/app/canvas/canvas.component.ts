@@ -109,6 +109,7 @@ export class CanvasComponent implements AfterViewInit {
     }
 
     private initializePrediction() {
+        this.predictions = [];
         for (let i = 0; i < 10; i++) {
             this.predictions.push({nr: i, accuracy: 0.0});
         }
